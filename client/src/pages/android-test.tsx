@@ -144,9 +144,10 @@ c/nNm9+dPft9b+TiG/P2z37zt7//9nDpj8CDAAA=
       await downloadFile(`android-test-${today}.pdf`, minimalPdf);
       
       setPdfTestResult('✅ Direct PDF test successful. Check your downloads or Documents folder.');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Direct PDF test failed:', error);
-      setPdfTestResult(`❌ Direct PDF test failed: ${error.message || error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setPdfTestResult(`❌ Direct PDF test failed: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
