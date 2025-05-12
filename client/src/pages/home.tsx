@@ -343,7 +343,7 @@ export default function Home() {
     // Guest mode is ENABLED - non-authenticated users can generate content
     
     // If user is not authenticated and guest mode is disabled, show auth prompt
-    if (!session.isAuthenticated) {
+    if (!session.isAuthenticated && !GUEST_MODE) {
       // Stop the generating animation if it was started
       setEditorState(prev => ({ ...prev, isGenerating: false }));
       
@@ -548,7 +548,7 @@ export default function Home() {
     // Guest mode is ENABLED - non-authenticated users can download PDFs
     
     // If user is not authenticated and guest mode is disabled, show auth prompt
-    if (!session.isAuthenticated) {
+    if (!session.isAuthenticated && !GUEST_MODE) {
       console.log("User not authenticated, showing auth prompt for PDF download");
       
       try {
@@ -622,7 +622,7 @@ export default function Home() {
 
   // Save the document
   const handleSaveDocument = async () => {
-    if (!session.isAuthenticated) {
+    if (!session.isAuthenticated && !GUEST_MODE) {
       toast({
         title: "Sign in required",
         description: "Please sign in to save documents.",
