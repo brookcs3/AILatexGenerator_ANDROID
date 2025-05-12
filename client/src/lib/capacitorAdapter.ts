@@ -1,87 +1,68 @@
 /**
- * Capacitor Plugin Adapter for Android and Web
+ * CapacitorAdapter - Safely imports and initializes Capacitor plugins
  * 
- * This file provides mock implementations of Capacitor plugins for web environments,
- * while allowing actual plugins to be used on Android. It uses a detection mechanism
- * instead of dynamic imports to avoid Vite build issues.
+ * This adapter prevents browser environments from crashing when 
+ * importing Capacitor plugins, which are only available in native
+ * environments like Android/iOS.
  */
 
-import { isPlatform } from './platform';
-
-// Directory constants 
-export const Directory = {
-  Documents: "DOCUMENTS",
-  Data: "DATA",
-  Cache: "CACHE",
-  External: "EXTERNAL",
-  ExternalStorage: "EXTERNAL_STORAGE"
-};
-
-// Mock filesystem implementation for web
-const FilesystemMock = {
-  writeFile: async ({ path, data, directory }: { path: string; data: string; directory?: string; recursive?: boolean }) => {
-    console.log(`[Web Mock] Writing file ${path} to ${directory || 'default directory'}`);
-    return { uri: `mock://files/${directory || 'default'}/${path}` };
-  },
-  
-  readFile: async ({ path, directory }: { path: string; directory?: string }) => {
-    console.log(`[Web Mock] Reading file ${path} from ${directory || 'default directory'}`);
-    return { data: "mock-file-content" };
-  },
-  
-  readdir: async ({ path, directory }: { path: string; directory?: string }) => {
-    console.log(`[Web Mock] Listing directory ${path} in ${directory || 'default directory'}`);
-    return { files: [{ name: "mock-file-1.txt" }, { name: "mock-file-2.pdf" }] };
-  },
-  
-  mkdir: async ({ path, directory, recursive }: { path: string; directory?: string; recursive?: boolean }) => {
-    console.log(`[Web Mock] Creating directory ${path} in ${directory || 'default directory'}`);
-    return {};
-  },
-  
-  rmdir: async ({ path, directory, recursive }: { path: string; directory?: string; recursive?: boolean }) => {
-    console.log(`[Web Mock] Removing directory ${path} from ${directory || 'default directory'}`);
-    return {};
-  },
-  
-  stat: async ({ path, directory }: { path: string; directory?: string }) => {
-    console.log(`[Web Mock] Getting stats for ${path} in ${directory || 'default directory'}`);
-    return { type: "file", size: 0, ctime: 0, mtime: 0, uri: `mock://files/${directory || 'default'}/${path}` };
-  }
-};
-
-// Export the filesystem - actual implementation will be injected by Capacitor on Android
-export const Filesystem = FilesystemMock;
-
-// Android detection - doesn't use dynamic imports
-let capacitorInitialized = false;
-
-/**
- * Initialize Capacitor (this is a no-op in the web environment)
- * On Android, this function will be replaced by Capacitor at runtime
- */
-export async function initializeCapacitor(): Promise<boolean> {
-  if (capacitorInitialized) {
-    return true;
-  }
-  
-  // Check if we're on Android - if so, Capacitor will replace our mock
-  // implementations with real ones at runtime
-  if (isPlatform('android')) {
-    console.log('Android detected, Capacitor will initialize automatically');
-    // The actual plugins are injected by Capacitor's Android runtime
-    // We don't need to do anything here
-  } else {
-    console.log('Web environment detected, using mock implementations');
-  }
-  
-  capacitorInitialized = true;
-  return true;
+// Define types for the plugins we use
+interface CapacitorPlugins {
+  Filesystem?: any;
+  App?: any;
+  Device?: any;
 }
 
+// Cache for initialized plugins
+let initializedPlugins: CapacitorPlugins | null = null;
+
 /**
- * Checks if Capacitor has been initialized
+ * Safely initializes Capacitor plugins for use in the app
+ * Returns an object with all available plugins
  */
-export function isCapacitorInitialized(): boolean {
-  return capacitorInitialized;
+export async function initializeCapacitor(): Promise<CapacitorPlugins> {
+  // Return cached plugins if already initialized
+  if (initializedPlugins) {
+    return initializedPlugins;
+  }
+  
+  // Initialize plugins object
+  initializedPlugins = {};
+  
+  try {
+    // Try to import Capacitor plugins
+    // These will fail in a browser environment but work in native apps
+    
+    // Filesystem for file operations
+    try {
+      const { Filesystem } = await import('@capacitor/filesystem');
+      initializedPlugins.Filesystem = Filesystem;
+      console.log('Capacitor Filesystem plugin initialized');
+    } catch (error) {
+      console.warn('Capacitor Filesystem not available:', error);
+    }
+    
+    // App for app information and events
+    try {
+      const { App } = await import('@capacitor/app');
+      initializedPlugins.App = App;
+      console.log('Capacitor App plugin initialized');
+    } catch (error) {
+      console.warn('Capacitor App not available:', error);
+    }
+    
+    // Device for device information
+    try {
+      const { Device } = await import('@capacitor/device');
+      initializedPlugins.Device = Device;
+      console.log('Capacitor Device plugin initialized');
+    } catch (error) {
+      console.warn('Capacitor Device not available:', error);
+    }
+    
+    return initializedPlugins;
+  } catch (error) {
+    console.error('Error initializing Capacitor:', error);
+    return {};
+  }
 }
