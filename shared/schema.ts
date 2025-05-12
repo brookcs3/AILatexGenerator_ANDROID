@@ -21,6 +21,11 @@ export const users = pgTable("users", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   
+  // Android subscription integration
+  subscriptionSource: text("subscription_source").default("web"),
+  googlePlayPurchaseToken: text("google_play_purchase_token"),
+  googlePlaySubscriptionId: text("google_play_subscription_id"),
+  
   // Subscription management
   subscriptionTier: text("subscription_tier").default("free").notNull(),
   subscriptionStatus: text("subscription_status").default("active").notNull(),

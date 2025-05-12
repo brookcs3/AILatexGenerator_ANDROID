@@ -66,7 +66,7 @@ export default function Header() {
         <div className="flex items-center">
           <Link 
             href="/" 
-            className="flex items-center" 
+            className="flex items-center pl-0" 
             aria-label="Go to AI LaTeX Generator homepage" 
             title="AI LaTeX Generator - Home"
             rel="home"
