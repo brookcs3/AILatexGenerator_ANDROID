@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        .card {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            max-width: 90%;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #log {
+            margin-top: 20px;
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 5px;
+            width: 100%;
+            text-align: left;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>AILatexGenerator Android Test</h1>
+        <p>If you can see this page, your Android app is successfully loading HTML content.</p>
+        <p>Current time: <span id="time"></span></p>
+        <button id="testButton">Test Connection</button>
+        <div id="log">Log messages will appear here.</div>
+    </div>
+
+    <script>
+        // Update time
+        function updateTime() {
+            document.getElementById('time').textContent = new Date().toLocaleTimeString();
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Log function
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const line = document.createElement('div');
+            line.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            logElement.appendChild(line);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // Test button
+        document.getElementById('testButton').addEventListener('click', async () => {
+            log('Testing connection...');
+            try {
+                const response = await fetch('/api/ping');
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`Server response: ${JSON.stringify(data)}`);
+                } else {
+                    log(`Error: ${response.status} ${response.statusText}`);
+                }
+            } catch (error) {
+                log(`Network error: ${error.message}`);
+            }
+        });
+
+        // Log startup information
+        log('Page loaded');
+        log(`User Agent: ${navigator.userAgent}`);
+    </script>
+</body>
+</html>

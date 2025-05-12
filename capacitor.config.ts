@@ -5,8 +5,10 @@ const config: CapacitorConfig = {
   appName: 'AILatexGenerator',
   webDir: 'dist',
   server: {
-    // Point to our Android-specific API server
-    url: 'https://api-android.aitexgen.com',
+    // Enable localhost for debugging - remove for production
+    androidScheme: "https",
+    // Comment out the URL temporarily for testing
+    // url: 'https://api-android.aitexgen.com',
     cleartext: true
   },
   android: {
@@ -17,7 +19,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     // Plugins configuration will be added later when RevenueCat is set up
-  }
+  },
+  // Add debugging information
+  loggingBehavior: "debug"
 };
 
 export default config;

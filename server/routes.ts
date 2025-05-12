@@ -67,6 +67,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).send('OK');
   });
   
+  // Ping endpoint for Android app testing
+  app.get('/api/ping', (req, res) => {
+    res.status(200).json({
+      status: 'pong',
+      timestamp: new Date().toISOString(),
+      userAgent: req.headers['user-agent'],
+      environment: process.env.NODE_ENV || 'development',
+      message: 'Android connection test successful'
+    });
+  });
+  
   // Track 404 paths to return correct status codes for SEO
   const notFoundPaths = new Map<string, number>();
   
