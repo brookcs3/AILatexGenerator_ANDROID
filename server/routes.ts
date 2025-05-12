@@ -864,7 +864,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
   
-  // Google Play subscription verification endpoint
+  // Google Play subscription verification endpoint (legacy)
   app.post("/api/android/verify-subscription", 
     requireAuth,
     async (req: Request, res: Response) => {
@@ -918,6 +918,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ 
           success: false,
           message: "Failed to verify subscription",
+          error: String(error)
+        });
+      }
+    }
+  );
+  
+  // RevenueCat subscription sync endpoint
+  app.post("/api/android/sync-subscription", 
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const userId = req.session.userId;
+      
+      try {
+        const user = await storage.getUserById(userId);
+        
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        
+        const { customerInfo } = req.body;
+        
+        if (!customerInfo) {
+          return res.status(400).json({ 
+            success: false,
+            message: "Missing customer information from RevenueCat"
+          });
+        }
+        
+        // Import the RevenueCat service
+        const { revenueCatService } = await import('./services/revenueCatService');
+        
+        // Sync subscription data with our database
+        const syncResult = await revenueCatService.syncSubscription(
+          userId,
+          customerInfo
+        );
+        
+        if (!syncResult.success) {
+          return res.status(400).json({
+            success: false,
+            message: syncResult.message || "Subscription sync failed"
+          });
+        }
+        
+        // Get updated user details
+        const updatedUser = await storage.getUserById(userId);
+        const usageLimit = await storage.getUserUsageLimit(updatedUser!);
+        
+        return res.status(200).json({ 
+          success: true,
+          message: "Android subscription synced successfully",
+          user: updatedUser,
+          usageLimit,
+          tierUpdated: syncResult.tierUpdated
+        });
+      } catch (error) {
+        console.error("RevenueCat subscription sync error:", error);
+        return res.status(500).json({ 
+          success: false,
+          message: "Failed to sync subscription",
           error: String(error)
         });
       }
