@@ -577,6 +577,34 @@ export const storage = {
       return null;
     }
   },
+        
+  /**
+   * Update Google Play subscription information for a user
+   */
+  async updateGooglePlaySubscription(userId: number, subscriptionData: {
+    googlePlaySubscriptionId: string;
+    googlePlayPurchaseToken: string;
+    tier?: string;
+  }): Promise<User | null> {
+    try {
+      const [updatedUser] = await db.update(users)
+        .set({
+          subscriptionSource: 'android',
+          googlePlaySubscriptionId: subscriptionData.googlePlaySubscriptionId,
+          googlePlayPurchaseToken: subscriptionData.googlePlayPurchaseToken,
+          subscriptionTier: subscriptionData.tier || SubscriptionTier.Basic, // Default to Basic tier
+          subscriptionStatus: 'active',
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      
+      return updatedUser || null;
+    } catch (error) {
+      console.error('Update subscription error:', error);
+      return null;
+    }
+  },
   
   /**
    * Get a user by ID - a simpler version that doesn't require any special handling

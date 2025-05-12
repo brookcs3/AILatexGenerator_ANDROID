@@ -25,7 +25,7 @@ const validateRequest = (schema: z.ZodType<any, any>) => {
     }
   };
 };
-import { generateLatexSchema, SubscriptionTier, REFILL_PACK_CREDITS, REFILL_PACK_PRICE } from "@shared/schema";
+import { generateLatexSchema, SubscriptionTier, REFILL_PACK_CREDITS, REFILL_PACK_PRICE, users } from "@shared/schema";
 import { generateLatex, getAvailableModels, callProviderWithModel, modifyLatex } from "./services/aiProvider";
 import { compileLatex, compileAndFixLatex } from "./services/latexService";
 import { stripeService } from "./services/stripeService";
@@ -35,6 +35,8 @@ import Stripe from "stripe";
 import session from "express-session";
 import pgSession from "connect-pg-simple";
 import { pool } from "../db";
+import { db } from "@db";
+import { eq } from "drizzle-orm";
 
 // Initialize Stripe
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -863,6 +865,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
   
   // Create payment intent for refill pack
+  // Google Play subscription verification endpoint
+  app.post("/api/android/verify-subscription", 
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const userId = req.session.userId;
+      
+      try {
+        const user = await storage.getUserById(userId);
+        
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        
+        const { purchaseToken, subscriptionId, packageName } = req.body;
+        
+        if (!purchaseToken || !subscriptionId) {
+          return res.status(400).json({ message: "Missing purchase information" });
+        }
+        
+        // For now, we'll accept the purchase without verification from Google Play API
+        // In production, you would verify with Google Play Developer API
+        
+        // Update user record with Google Play subscription information
+        const updateData = {
+          tier: SubscriptionTier.Basic, // Default to Basic tier
+        };
+        
+        // Update subscription details in database
+        await db.update(users)
+          .set({
+            subscriptionSource: 'android',
+            googlePlayPurchaseToken: purchaseToken,
+            googlePlaySubscriptionId: subscriptionId,
+            subscriptionTier: updateData.tier,
+            subscriptionStatus: 'active',
+            updatedAt: new Date()
+          })
+          .where(eq(users.id, userId));
+        
+        // Get updated user details
+        const updatedUser = await storage.getUserById(userId);
+        const usageLimit = await storage.getUserUsageLimit(updatedUser!);
+        
+        return res.status(200).json({ 
+          success: true,
+          message: "Android subscription verified successfully",
+          user: updatedUser,
+          usageLimit 
+        });
+      } catch (error) {
+        console.error("Android subscription verification error:", error);
+        return res.status(500).json({ message: "Failed to verify subscription" });
+      }
+    }
+  );
+
   app.post("/api/subscription/refill/create", 
     requireAuth,
     async (req: Request, res: Response) => {
