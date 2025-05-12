@@ -3,7 +3,7 @@
  */
 
 import { isPlatform } from './platform';
-import { Filesystem, Directory, initializeCapacitor } from './capacitorAdapter';
+import { Filesystem, Directory, initializeCapacitor, isCapacitorInitialized } from './capacitorAdapter';
 
 /**
  * Download or save a file, with platform-specific handling

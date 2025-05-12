@@ -127,6 +127,35 @@ export default function AndroidTest() {
       setIsLoading(false);
     }
   };
+  
+  // Direct test with fileHandler
+  const handleDirectPDFTest = async () => {
+    setIsLoading(true);
+    try {
+      // Import the fileHandler directly
+      const { downloadFile } = await import('@/lib/fileHandler');
+      
+      // Create a simple PDF content (as a base64 string)
+      // This is a minimal PDF structure that displays "Test PDF from Android Test Page"
+      const pdfBase64 = "JVBERi0xLjcKJeLjz9MKNSAwIG9iago8PAovRmlsdGVyIC9GbGF0ZURlY29kZQovTGVuZ3RoIDg0Cj4+CnN0cmVhbQp4nDPQM1QwNjQAAiVDBRMlQz0THQsjA6CAFCU3sLh4eBhQQM9Qz8LAGQhNTE0qLIxcgdAYCE2BTBNXCJvLUE8PhBrpGcBVGBoZmsNUuJoYuELVhCvEbiAAfmkaEAplbmRzdHJlYW0KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL01lZGlhQm94IFswIDAgNTk1IDg0Ml0KL1Jlc291cmNlcyA8PAo+PgovQ29udGVudHMgNSAwIFIKL1BhcmVudCAyIDAgUgo+PgplbmRvYmoKMiAwIG9iago8PAovVHlwZSAvUGFnZXMKL0tpZHMgWzQgMCBSXQovQ291bnQgMQo+PgplbmRvYmoKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL3RyYXBwZWQgKGZhbHNlKQovQ3JlYXRvciAoQUkgTGFUZVggR2VuZXJhdG9yIEFuZHJvaWQgVGVzdCkKL1RpdGxlIChUZXN0IFBERiBmcm9tIEFuZHJvaWQgVGVzdCBQYWdlKQovQ3JlYXRpb25EYXRlIChEOjIwMjQwNTEyMTIzMTAyKQo+PgplbmRvYmoKZW5kb2JqCnRyYWlsZXIKPDwKL1NpemUgNgovUm9vdCAxIDAgUgovSW5mbyAzIDAgUgo+PgpzdGFydHhyZWYKNDcxCiUlRU9GCg==";
+      
+      // Try to save with our file handler
+      alert("Starting direct PDF test...");
+      const result = await downloadFile("direct-test.pdf", pdfBase64);
+      
+      setResult(`Direct PDF test complete!
+        
+        Result: ${JSON.stringify(result)}
+        
+        This test bypasses authentication and any LaTeX generation.
+        If on Android, check your Documents folder for direct-test.pdf`);
+    } catch (error) {
+      console.error("Error in direct PDF test:", error);
+      setResult(`Error in direct PDF test: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <SiteLayout>
@@ -197,6 +226,21 @@ export default function AndroidTest() {
               List Files
             </Button>
           </div>
+        </div>
+        
+        <div className="mb-8 bg-purple-50 dark:bg-purple-900/20 rounded-lg p-5 shadow-sm border border-purple-100 dark:border-purple-800">
+          <h3 className="text-lg font-medium mb-3 text-purple-700 dark:text-purple-300">Direct PDF Test</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+            This test bypasses authentication and directly saves a PDF file to test the file handling system.
+            Use this to verify if PDF downloads work independently of the app's authentication system.
+          </p>
+          <Button 
+            onClick={handleDirectPDFTest} 
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+            disabled={isLoading}
+          >
+            Save Test PDF Directly
+          </Button>
         </div>
         
         {isLoading && (
