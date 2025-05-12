@@ -675,10 +675,11 @@ export default function Home() {
       return;
     }
     
-    // Guest mode is disabled - non-authenticated users cannot compile PDFs
+    // Guest mode is ENABLED - non-authenticated users can compile PDFs
+    const GUEST_MODE = true;
     
-    // If user is not authenticated, show auth prompt
-    if (!session.isAuthenticated) {
+    // If user is not authenticated and guest mode is disabled, show auth prompt
+    if (!session.isAuthenticated && !GUEST_MODE) {
       console.log("User not authenticated, showing auth prompt for PDF compilation");
       
       try {
