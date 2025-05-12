@@ -7,8 +7,8 @@ const config: CapacitorConfig = {
   server: {
     // Enable localhost for debugging - remove for production
     androidScheme: "https",
-    // Comment out the URL temporarily for testing
-    // url: 'https://api-android.aitexgen.com',
+    // Using the production API
+    url: 'https://api-android.aitexgen.com',
     cleartext: true
   },
   android: {
