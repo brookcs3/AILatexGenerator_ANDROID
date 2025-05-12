@@ -1,0 +1,106 @@
+Why your “PDF preview” won’t show
+
+Android’s stock WebView (the engine that renders your Capacitor/React page inside the app) cannot display PDF files natively.
+That’s why you see your own log line…
+
+PDF download initiated with filename: UhuhuhuuhuhUhuh.pdf
+
+…but nothing renders after the download finishes. On desktop Chrome you’d get the built-in PDF viewer; inside an Android WebView you just get a blank frame unless you add a viewer yourself.
+
+⸻
+
+Your options
+
+Approach	What it does	When to pick it	Key steps
+1. Use pdf.js inside the WebView	All rendering happens in-app (no context‐switch).	You need inline preview and full UI control.	npm i pdfjs-dist, lazy-load it, then: 1) fetch/Filesystem.readFile → 2) pdfjsLib.getDocument(arrayBuffer) → 3) render onto <canvas> or <iframe>
+2. Open the PDF with a native Intent (external app)	Hands the file/URL to any installed PDF viewer.	Fastest, least code; preview doesn’t have to be in your own UI.	npm i @capacitor/app-launcher (or use Capacitor 5 App). After you download → AppLauncher.openUrl({ url: 'file:///…/your.pdf' });
+3. Show it in Chrome Custom Tabs / Capacitor Browser	Leaves your app but preserves Material look-and-feel.	User is fine viewing in Chrome and returning via Back.	import { Browser } from '@capacitor/browser'; then Browser.open({ url: pdfUrl });
+4. Embed Google Docs Viewer (iframe)	Quick hack—Google renders the PDF.	Demo / prototypes only (depends on network & Google).	<iframe src="https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(pdfUrl)}"/>
+
+
+⸻
+
+Recommended quick fix
+
+If you’re okay with opening the system PDF viewer:
+
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { AppLauncher } from '@capacitor/app-launcher';
+
+async function downloadAndOpen(url: string, fileName: string) {
+  // 1️⃣ download
+  const resp = await fetch(url);
+  const blob = await resp.blob();
+  const buffer = await blob.arrayBuffer();
+
+  // 2️⃣ write to app’s cache dir
+  const path = `${Date.now()}-${fileName}`;
+  await Filesystem.writeFile({
+    path,
+    directory: Directory.Cache,
+    data: buffer,
+  });
+
+  // 3️⃣ launch external viewer
+  //    file:///android_asset/... won’t work – get the real uri first:
+  const { uri } = await Filesystem.getUri({
+    path,
+    directory: Directory.Cache,
+  });
+
+  await AppLauncher.openUrl({ url: uri });
+}
+
+No additional permissions are needed on Android 11+ when you stay inside Directory.Cache (scoped-storage friendly).
+If you write to external storage instead, remember to request READ_EXTERNAL_STORAGE (Android 12-) or MANAGE_EXTERNAL_STORAGE (Android 13), and add a <provider> entry with FileProvider in AndroidManifest.xml.
+
+⸻
+
+If you need an inline preview (keeps the PDF inside your page)
+	1.	Add pdf.js (works offline, no external viewer, full control).
+	2.	Don’t load the gigantic worker bundle up-front; lazy-load when user taps “Preview”.
+	3.	Example skeleton:
+
+import { useEffect, useRef } from 'react';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+
+GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'; // place it in assets
+
+function PdfPreview({ url }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    (async () => {
+      const loadingTask = getDocument(url);
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1); // first page
+      const viewport = page.getViewport({ scale: 1.5 });
+
+      const canvas = canvasRef.current!;
+      const ctx = canvas.getContext('2d')!;
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      await page.render({ canvasContext: ctx, viewport }).promise;
+    })();
+  }, [url]);
+
+  return <canvas ref={canvasRef} />;
+}
+
+
+⸻
+
+Debug checklist (if you still get a blank screen)
+	1.	Confirm the file really downloaded: log the uri from Filesystem.
+	2.	CORS headers on the PDF endpoint if you stream straight into an <iframe> (Access-Control-Allow-Origin: * for tests).
+	3.	MIME type must be application/pdf (some servers default to octet-stream; pdf.js can still parse, but Chrome won’t).
+	4.	Network inspector (Android Studio > Logcat > Network) – makes sure request status is 200.
+
+⸻
+
+TL;DR – pick one path
+	•	Need it inside your UI? → integrate pdf.js.
+	•	Okay launching another app? → download to Directory.Cache, then AppLauncher.openUrl(...).
+
+Either way, the blank preview isn’t your code’s fault—the WebView simply doesn’t come with a PDF viewer.

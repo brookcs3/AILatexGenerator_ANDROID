@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import PlatformAwarePDFRenderer from "./platform-aware-pdf-renderer";
 
 interface PDFPreviewProps {
   pdfData: string | null;
@@ -201,12 +202,25 @@ export default function PDFPreview({ pdfData, title, onCompilePdf, isHtml = fals
                   <Button 
                     onClick={() => {
                       try {
-                        const filename = title || "GeneratedDocument";
-                        import('@/lib/utils').then(({ downloadPdf }) => {
-                          downloadPdf(pdfData, filename, isHtml);
+                        const filename = (title || "GeneratedDocument").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                        // Import from our platform-aware file handler
+                        import('@/lib/fileHandler').then(({ downloadFile }) => {
+                          // For HTML, we need special handling
+                          if (isHtml) {
+                            // For HTML we still use the old utility
+                            import('@/lib/utils').then(({ downloadPdf }) => {
+                              downloadPdf(pdfData, filename, isHtml);
+                            });
+                          } else {
+                            // For PDF, use our new platform-aware handler
+                            downloadFile(`${filename}.pdf`, pdfData);
+                          }
+                        }).catch(err => {
+                          console.error("Error importing fileHandler:", err);
+                          setErrorMessage("Failed to download document");
                         });
                       } catch (err) {
-                        console.error("Error during PDF download:", err);
+                        console.error("Error during download:", err);
                         setErrorMessage("Failed to download document");
                       }
                     }}
@@ -312,13 +326,14 @@ export default function PDFPreview({ pdfData, title, onCompilePdf, isHtml = fals
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center">
                     {pdfData ? (
-                      <iframe 
-                        key={`pdf-frame-${iframeKey}`}
-                        src={formattedData || "about:blank"}
-                        className="w-full h-full border-0"
-                        title="PDF Preview"
-                        onError={(e) => {
-                          console.error("PDF iframe load error:", e);
+                      <PlatformAwarePDFRenderer 
+                        pdfData={pdfData}
+                        title={title || "Generated Document"}
+                        timestamp={new Date().toLocaleString()}
+                        formattedData={formattedData}
+                        iframeKey={iframeKey}
+                        onError={(err) => {
+                          console.error("PDF renderer error:", err);
                           
                           // Only show error if we've reached max retries
                           if (loadRetries >= 2) {
@@ -332,7 +347,7 @@ export default function PDFPreview({ pdfData, title, onCompilePdf, isHtml = fals
                           }
                         }}
                         onLoad={() => {
-                          console.log("PDF iframe loaded successfully");
+                          console.log("PDF rendered successfully");
                           // Make sure we're not showing loading or error states
                           setIsGenerating(false);
                           setErrorMessage(null);
