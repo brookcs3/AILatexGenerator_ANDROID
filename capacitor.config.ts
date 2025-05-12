@@ -1,0 +1,26 @@
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.aitexgen.latex',
+  appName: 'AILatexGenerator',
+  webDir: 'client',
+  server: {
+    // Point to our Android-specific API server
+    url: 'https://api-android.aitexgen.com',
+    cleartext: true
+  },
+  android: {
+    buildOptions: {
+      keystorePath: 'android.keystore',
+      keystoreAlias: 'aitexgen',
+    }
+  },
+  plugins: {
+    // Support Google Play Billing
+    CapacitorInAppPurchases: {
+      // Configured when we add the IAP plugin
+    }
+  }
+};
+
+export default config;
