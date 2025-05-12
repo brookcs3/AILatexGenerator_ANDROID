@@ -864,7 +864,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
   
-  // Create payment intent for refill pack
   // Google Play subscription verification endpoint
   app.post("/api/android/verify-subscription", 
     requireAuth,
@@ -878,31 +877,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "User not found" });
         }
         
-        const { purchaseToken, subscriptionId, packageName } = req.body;
+        const { purchaseToken, productId } = req.body;
         
-        if (!purchaseToken || !subscriptionId) {
-          return res.status(400).json({ message: "Missing purchase information" });
+        if (!purchaseToken || !productId) {
+          return res.status(400).json({ 
+            success: false,
+            message: "Missing purchase information. Required: purchaseToken, productId"
+          });
         }
         
-        // For now, we'll accept the purchase without verification from Google Play API
-        // In production, you would verify with Google Play Developer API
+        // Import the Android billing service
+        const { androidBillingService } = await import('./services/androidBillingService');
         
-        // Update user record with Google Play subscription information
-        const updateData = {
-          tier: SubscriptionTier.Basic, // Default to Basic tier
-        };
+        // Verify the subscription with Google Play
+        const verificationResult = await androidBillingService.verifySubscription(
+          userId,
+          purchaseToken,
+          productId
+        );
         
-        // Update subscription details in database
-        await db.update(users)
-          .set({
-            subscriptionSource: 'android',
-            googlePlayPurchaseToken: purchaseToken,
-            googlePlaySubscriptionId: subscriptionId,
-            subscriptionTier: updateData.tier,
-            subscriptionStatus: 'active',
-            updatedAt: new Date()
-          })
-          .where(eq(users.id, userId));
+        if (!verificationResult.success) {
+          return res.status(400).json({
+            success: false,
+            message: verificationResult.message || "Subscription verification failed"
+          });
+        }
         
         // Get updated user details
         const updatedUser = await storage.getUserById(userId);
@@ -916,7 +915,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (error) {
         console.error("Android subscription verification error:", error);
-        return res.status(500).json({ message: "Failed to verify subscription" });
+        return res.status(500).json({ 
+          success: false,
+          message: "Failed to verify subscription",
+          error: String(error)
+        });
       }
     }
   );
