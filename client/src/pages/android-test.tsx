@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { isPlatform, detectPlatform } from '@/lib/platform';
 import { downloadFile } from '@/lib/fileHandler';
 import { initializeCapacitor } from '@/lib/capacitorAdapter';
+import { TEST_PDF_BASE64 } from '@/lib/testPdf';
 
 export default function AndroidTestPage() {
   const [platform, setPlatform] = useState<string>('detecting...');
@@ -24,15 +25,24 @@ export default function AndroidTestPage() {
     setFileTestResult('Testing file write...');
 
     try {
-      const testContent = 'Hello from AILatexGenerator Android Test';
+      // Create a simple text file
+      const testContent = 'Hello from AILatexGenerator Android Test\n\nThis is a test file created on ' + new Date().toISOString();
       const filename = 'test-file.txt';
       
       // Convert to base64
       const base64Content = btoa(testContent);
       
+      // Log the file details for debugging
+      console.log('Writing test file:', {
+        filename,
+        contentLength: testContent.length,
+        base64Length: base64Content.length
+      });
+      
+      // Download the file
       await downloadFile(filename, base64Content);
       
-      setFileTestResult('✅ File write test successful');
+      setFileTestResult('✅ File write test successful! Check your Downloads folder.');
     } catch (error: unknown) {
       console.error('File write test failed:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);

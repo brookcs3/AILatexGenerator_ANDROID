@@ -86,18 +86,53 @@ export async function downloadFile(filename: string, content: string): Promise<s
     try {
       console.log(`[fileHandler] Downloading file on web: ${safeFilename}`);
       
+      // Determine the correct MIME type based on filename
+      let mimeType = 'application/octet-stream';
+      if (safeFilename.endsWith('.pdf')) {
+        mimeType = 'application/pdf';
+      } else if (safeFilename.endsWith('.txt')) {
+        mimeType = 'text/plain';
+      } else if (safeFilename.endsWith('.html')) {
+        mimeType = 'text/html';
+      } else if (safeFilename.endsWith('.jpg') || safeFilename.endsWith('.jpeg')) {
+        mimeType = 'image/jpeg';
+      } else if (safeFilename.endsWith('.png')) {
+        mimeType = 'image/png';
+      }
+      
       // Make sure we're working with a data URL
       const dataUrl = content.startsWith('data:') 
         ? content 
-        : `data:application/octet-stream;base64,${content}`;
+        : `data:${mimeType};base64,${content}`;
+      
+      // Use Blob method for more reliable downloads
+      // Convert data URL to Blob
+      const byteString = atob(dataUrl.split(',')[1]);
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      
+      const blob = new Blob([ab], { type: mimeType });
+      const url = URL.createObjectURL(blob);
       
       // Create an anchor and trigger download
       const link = document.createElement('a');
-      link.href = dataUrl;
+      link.href = url;
       link.download = safeFilename;
+      link.style.display = 'none';
       document.body.appendChild(link);
+      
+      // Trigger the download
       link.click();
-      document.body.removeChild(link);
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
       
       return 'browser-download';
     } catch (error) {
