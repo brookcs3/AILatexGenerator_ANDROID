@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import path from "path";
 import { fileURLToPath } from "url";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -9,6 +10,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Configure CORS for API access from web and Android clients
+app.use(cors({
+  origin: ['https://aitexgen.com', 'capacitor://localhost', 'http://localhost', 'https://api-android.aitexgen.com'],
+  credentials: true
+}));
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, "../public")));
