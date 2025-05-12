@@ -16,19 +16,7 @@ const config: CapacitorConfig = {
     }
   },
   plugins: {
-    // Configure the official RevenueCat plugin
-    PurchasesPlugin: {
-      // RevenueCat API key
-      // You'll need to replace this with your actual RevenueCat API key
-      apiKey: "your_revenuecat_api_key",
-      
-      // Observer mode is false by default
-      // If true, RevenueCat will only observe transactions and not initiate them
-      observerMode: false,
-      
-      // For Android specifically
-      useAmazon: false // set to true if distributing through Amazon App Store
-    }
+    // Plugins configuration will be added later when RevenueCat is set up
   }
 };
 
