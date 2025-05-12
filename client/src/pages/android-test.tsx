@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { isPlatform, getPlatform } from '@/lib/platform';
+import { isPlatform, detectPlatform } from '@/lib/platform';
 import { downloadFile } from '@/lib/fileHandler';
 import { initializeCapacitor } from '@/lib/capacitorAdapter';
 
@@ -11,12 +11,12 @@ export default function AndroidTestPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    setPlatform(getPlatform());
+    setPlatform(detectPlatform());
   }, []);
 
   const testPlatform = () => {
-    setPlatform(getPlatform());
-    alert(`Current platform: ${getPlatform()}`);
+    setPlatform(detectPlatform());
+    alert(`Current platform: ${detectPlatform()}`);
   };
 
   const testFileWrite = async () => {
@@ -33,9 +33,10 @@ export default function AndroidTestPage() {
       await downloadFile(filename, base64Content);
       
       setFileTestResult('✅ File write test successful');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('File write test failed:', error);
-      setFileTestResult(`❌ File write test failed: ${error.message || error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setFileTestResult(`❌ File write test failed: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -70,9 +71,10 @@ export default function AndroidTestPage() {
       } else {
         setFileListResult('📁 No files found in Documents directory');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('List files failed:', error);
-      setFileListResult(`❌ List files failed: ${error.message || error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setFileListResult(`❌ List files failed: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
