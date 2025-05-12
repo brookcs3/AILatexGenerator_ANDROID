@@ -2,59 +2,33 @@ import { useState, useEffect } from "react";
 import SiteLayout from "@/components/layout/site-layout";
 import { Button } from "@/components/ui/button";
 import { isPlatform } from "@/lib/platform";
-
-// Instead of direct imports, we'll use dynamic imports or access these via a wrapper
-// This prevents build issues with Capacitor modules
-type FilesystemType = {
-  writeFile: (options: any) => Promise<any>;
-  readdir: (options: any) => Promise<any>;
-};
-
-// Use type for Directory enum
-type DirectoryType = {
-  Documents: string;
-};
-
-// These will be populated at runtime
-let Filesystem: FilesystemType | null = null;
-let Directory: DirectoryType | null = null;
+import { Filesystem, Directory, initializeCapacitor, isCapacitorInitialized } from "@/lib/capacitorAdapter";
 
 export default function AndroidTest() {
   const [result, setResult] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isCapacitorReady, setIsCapacitorReady] = useState(false);
+  const [isCapacitorReady, setIsCapacitorReady] = useState(isCapacitorInitialized());
 
   // Initialize Capacitor modules at runtime
   useEffect(() => {
     const initCapacitor = async () => {
       try {
-        // Only attempt to load if we're on Android
-        if (isPlatform('android')) {
-          // Dynamic import of Capacitor modules
-          try {
-            // Using dynamic import to prevent build-time issues
-            const filesystemModule = await import('@capacitor/filesystem');
-            Filesystem = filesystemModule.Filesystem;
-            Directory = filesystemModule.Directory;
-            
-            setIsCapacitorReady(true);
-            setResult("✅ Successfully loaded Capacitor modules!");
-          } catch (importError) {
-            console.error("Failed to load Capacitor modules:", importError);
-            setResult(`❌ Error loading Capacitor modules: ${importError instanceof Error ? importError.message : String(importError)}`);
-          }
-        } else {
-          // On web, we'll use mock implementations
-          setResult("Running in web browser - Capacitor functionality will be limited");
-          
-          // Create a simple mock for testing in browser
-          Filesystem = {
-            writeFile: async () => ({ uri: "mock://file.txt" }),
-            readdir: async () => ({ files: [{ name: "mock-file-1.txt" }, { name: "mock-file-2.txt" }] })
-          };
-          
-          Directory = { Documents: "DOCUMENTS" };
+        if (isCapacitorInitialized()) {
           setIsCapacitorReady(true);
+          setResult("✅ Capacitor modules already loaded!");
+          return;
+        }
+
+        // Try to initialize Capacitor (will only do real initialization on Android)
+        const success = await initializeCapacitor();
+        
+        if (success) {
+          setIsCapacitorReady(true);
+          setResult("✅ Successfully loaded Capacitor modules!");
+        } else {
+          // This shouldn't happen, since our adapter provides fallbacks
+          setResult("⚠️ Running in web browser - Capacitor functionality will be limited");
+          setIsCapacitorReady(true); // We can still proceed with mock implementations
         }
       } catch (error) {
         console.error("Error initializing Capacitor:", error);
@@ -85,10 +59,8 @@ export default function AndroidTest() {
   const handleTestFileWrite = async () => {
     setIsLoading(true);
     try {
-      if (!Filesystem || !Directory) {
-        setResult("Capacitor Filesystem not initialized yet!");
-        return;
-      }
+      // Initialize Capacitor if not already done
+      await initializeCapacitor();
       
       // Generate a test file with current timestamp
       const testData = `Test file created at ${new Date().toISOString()}`;
@@ -124,19 +96,27 @@ export default function AndroidTest() {
   const handleListFiles = async () => {
     setIsLoading(true);
     try {
-      if (!Filesystem || !Directory) {
-        setResult("Capacitor Filesystem not initialized yet!");
-        return;
-      }
+      // Initialize Capacitor if not already done
+      await initializeCapacitor();
       
       const listResult = await Filesystem.readdir({
         path: "",
         directory: Directory.Documents
       });
       
+      if (listResult.files.length === 0) {
+        setResult("No files found in Documents directory.");
+        return;
+      }
+      
+      // Map file names to a list
+      const fileList = listResult.files
+        .map((file: any) => `- ${file.name || file}`)
+        .join('\n        ');
+      
       setResult(
         `Files in Documents directory:
-        ${listResult.files.map((file: { name: string }) => `- ${file.name}`).join('\n')}
+        ${fileList}
         
         Total files: ${listResult.files.length}`
       );

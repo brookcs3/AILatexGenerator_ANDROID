@@ -1,0 +1,32 @@
+cameronbrooks@Camerons-MacBook-Pro ~/Android/AI Latex Generator DEV/AILatexGenerator_ANDROID $ ./scripts/build-android.sh
+
+WARNING: RevenueCat is not configured in capacitor.config.ts
+The app will build but in-app purchases won't work
+This is fine for initial development and testing
+
+
+==== Building web app ====
+
+
+> rest-express@1.0.0 build
+> vite build
+
+vite v5.4.18 building for production...
+✓ 86 modules transformed.
+x Build failed in 572ms
+error during build:
+[vite]: Rollup failed to resolve import "@capacitor/filesystem" from "/Users/cameronbrooks/Android/AI Latex Generator DEV/AILatexGenerator_ANDROID/client/src/pages/android-test.tsx".
+This is most likely unintended because it can break your application at runtime.
+If you do want to externalize this module explicitly add it to
+`build.rollupOptions.external`
+    at viteWarn (file:///Users/cameronbrooks/Android/AI%20Latex%20Generator%20DEV/AILatexGenerator_ANDROID/node_modules/vite/dist/node/chunks/dep-DbT5NFX0.js:65789:17)
+    at onwarn (file:///Users/cameronbrooks/Android/AI%20Latex%20Generator%20DEV/AILatexGenerator_ANDROID/node_modules/@vitejs/plugin-react/dist/index.mjs:282:9)
+    at onRollupWarning (file:///Users/cameronbrooks/Android/AI%20Latex%20Generator%20DEV/AILatexGenerator_ANDROID/node_modules/vite/dist/node/chunks/dep-DbT5NFX0.js:65819:5)
+    at onwarn (file:///Users/cameronbrooks/Android/AI%20Latex%20Generator%20DEV/AILatexGenerator_ANDROID/node_modules/vite/dist/node/chunks/dep-DbT5NFX0.js:65484:7)
+    at file:///Users/cameronbrooks/Android/AI%20Latex%20Generator%20DEV/AILatexGenerator_ANDROID/node_modules/rollup/dist/es/shared/node-entry.js:20679:13
+    at Object.logger [as onLog] (file:///Users/cameronbrooks/Android/AI%20Latex%20Generator%20DEV/AILatexGenerator_ANDROID/node_modules/rollup/dist/es/shared/node-entry.js:22551:9)
+    at ModuleLoader.handleInvalidResolvedId (file:///Users/cameronbrooks/Android/AI%20Latex%20Generator%20DEV/AILatexGenerator_ANDROID/node_modules/rollup/dist/es/shared/node-entry.js:21291:26)
+    at ModuleLoader.resolveDynamicImport (file:///Users/cameronbrooks/Android/AI%20Latex%20Generator%20DEV/AILatexGenerator_ANDROID/node_modules/rollup/dist/es/shared/node-entry.js:21349:58)
+    at async file:///Users/cameronbrooks/Android/AI%20Latex%20Generator%20DEV/AILatexGenerator_ANDROID/node_modules/rollup/dist/es/shared/node-entry.js:21237:32
+Build failed!
+cameronbrooks@Camerons-MacBook-Pro ~/Android/AI Latex Generator DEV/AILatexGenerator_ANDROID $ 

@@ -3,26 +3,7 @@
  */
 
 import { isPlatform } from './platform';
-
-// Define type for dynamic import of Capacitor Filesystem
-type FilesystemModule = {
-  Filesystem: {
-    writeFile: (options: {
-      path: string;
-      data: string;
-      directory?: string;
-      encoding?: string;
-      recursive?: boolean;
-    }) => Promise<{ uri: string }>;
-  };
-  Directory: {
-    Documents: string;
-    Data: string;
-    Cache: string;
-    External: string;
-    ExternalStorage: string;
-  };
-};
+import { Filesystem, Directory, initializeCapacitor } from './capacitorAdapter';
 
 /**
  * Download or save a file, with platform-specific handling
@@ -58,8 +39,8 @@ export async function downloadFile(
  */
 async function saveFileOnAndroid(filename: string, content: string): Promise<string> {
   try {
-    // Dynamically import Capacitor modules
-    const { Filesystem, Directory } = await import('@capacitor/filesystem') as FilesystemModule;
+    // Initialize Capacitor if not already initialized
+    await initializeCapacitor();
     
     // Make sure we have a proper extension
     if (!filename.includes('.')) {
@@ -70,6 +51,11 @@ async function saveFileOnAndroid(filename: string, content: string): Promise<str
     // If content is not base64 encoded, encode it
     if (!content.startsWith('data:') && !isBase64(content)) {
       content = btoa(content);
+    }
+    
+    // Extract base64 data if in data URL format
+    if (content.startsWith('data:')) {
+      content = content.split(',')[1];
     }
     
     // Write the file to the Documents directory
