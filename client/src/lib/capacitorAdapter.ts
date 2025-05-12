@@ -13,6 +13,7 @@ interface CapacitorPlugins {
   Filesystem?: any;
   AppLauncher?: any;
   Share?: any;
+  FileOpener?: any;
 }
 
 // Mock implementations for web fallbacks
@@ -63,6 +64,14 @@ const mockShare = {
     }
     
     return { value: false };
+  }
+};
+
+const mockFileOpener = {
+  open: async ({ filePath, contentType }: { filePath: string; contentType: string }) => {
+    console.log(`[mockFileOpener] Would open ${filePath} as ${contentType}`);
+    alert(`PDF download complete: ${filePath}`);
+    return { value: true };
   }
 };
 
@@ -133,11 +142,68 @@ export async function initializeCapacitor(): Promise<CapacitorPlugins> {
         console.warn('Capacitor AppLauncher not available, using mock:', error);
         initializedPlugins.AppLauncher = mockAppLauncher;
       }
+      
+      // Load Share
+      try {
+        // Use global reference instead of direct import to prevent build issues
+        const cap = (window as any).Capacitor;
+        const plugins = cap.Plugins;
+        
+        if (plugins && plugins.Share) {
+          initializedPlugins.Share = plugins.Share;
+          console.log('Capacitor Share plugin initialized from global');
+        } else {
+          try {
+            // Fallback to direct import if not in global plugins
+            const dynamicImport = new Function('return import("@capacitor/share")')();
+            const shareModule = await dynamicImport;
+            initializedPlugins.Share = shareModule.Share;
+            console.log('Capacitor Share plugin initialized from import');
+          } catch (importError) {
+            console.warn('Capacitor Share import failed, trying legacy path:', importError);
+            // Some versions might be under different package
+            const legacyImport = new Function('return import("@capacitor/core").then(m => m.Plugins.Share)')();
+            const legacyShare = await legacyImport;
+            if (legacyShare) {
+              initializedPlugins.Share = legacyShare;
+              console.log('Capacitor Share plugin initialized from legacy path');
+            } else {
+              throw new Error('Share plugin not found in any location');
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Capacitor Share not available, using mock:', error);
+        initializedPlugins.Share = mockShare;
+      }
+      
+      // Load FileOpener
+      try {
+        // Use global reference instead of direct import to prevent build issues
+        const cap = (window as any).Capacitor;
+        const plugins = cap.Plugins;
+
+        if (plugins && plugins.FileOpener) {
+          initializedPlugins.FileOpener = plugins.FileOpener;
+          console.log('Capacitor FileOpener plugin initialized from global');
+        } else {
+          // Fallback to direct import if not in global plugins
+          const dynamicImport = new Function('return import("@capacitor-community/file-opener")')();
+          const fileOpenerModule = await dynamicImport;
+          initializedPlugins.FileOpener = fileOpenerModule.FileOpener;
+          console.log('Capacitor FileOpener plugin initialized from import');
+        }
+      } catch (error) {
+        console.warn('Capacitor FileOpener not available, using mock:', error);
+        initializedPlugins.FileOpener = mockFileOpener;
+      }
     } else {
       // We're in a web environment, use mocks
       console.log('Using web mocks for Capacitor plugins');
       initializedPlugins.Filesystem = mockFilesystem;
       initializedPlugins.AppLauncher = mockAppLauncher;
+      initializedPlugins.Share = mockShare;
+      initializedPlugins.FileOpener = mockFileOpener;
     }
     
     return initializedPlugins;
@@ -146,7 +212,9 @@ export async function initializeCapacitor(): Promise<CapacitorPlugins> {
     // Return mocks as a fallback
     return {
       Filesystem: mockFilesystem,
-      AppLauncher: mockAppLauncher
+      AppLauncher: mockAppLauncher,
+      Share: mockShare,
+      FileOpener: mockFileOpener
     };
   }
 }

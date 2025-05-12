@@ -1,0 +1,97 @@
+Thanks—this capacitorAdapter.ts file is well-structured and already sets up a clean pattern for dynamic plugin loading. To support reliable PDF viewing on Android, here’s exactly how to update your setup:
+
+⸻
+
+✅ Step-by-Step: Add FileOpener Plugin to capacitorAdapter
+
+1. Install the Plugin
+
+Run this in your project root:
+
+npm install @capacitor-community/file-opener
+npx cap sync
+
+
+⸻
+
+2. Add a Mock for Web
+
+In your adapter, below mockShare, add:
+
+const mockFileOpener = {
+  open: async ({ filePath, contentType }: { filePath: string; contentType: string }) => {
+    console.log(`[mockFileOpener] Would open ${filePath} as ${contentType}`);
+    alert(`PDF download complete: ${filePath}`);
+    return { value: true };
+  }
+};
+
+
+⸻
+
+3. Extend CapacitorPlugins Interface
+
+Update it to include the new plugin:
+
+interface CapacitorPlugins {
+  Filesystem?: any;
+  AppLauncher?: any;
+  Share?: any;
+  FileOpener?: any;
+}
+
+
+⸻
+
+4. Load FileOpener Plugin in Native Context
+
+Below the Share plugin section, add this new block:
+
+// Load FileOpener
+try {
+  const cap = (window as any).Capacitor;
+  const plugins = cap.Plugins;
+
+  if (plugins && plugins.FileOpener) {
+    initializedPlugins.FileOpener = plugins.FileOpener;
+    console.log('Capacitor FileOpener plugin initialized from global');
+  } else {
+    const dynamicImport = new Function('return import("@capacitor-community/file-opener")')();
+    const fileOpenerModule = await dynamicImport;
+    initializedPlugins.FileOpener = fileOpenerModule.FileOpener;
+    console.log('Capacitor FileOpener plugin initialized from import');
+  }
+} catch (error) {
+  console.warn('Capacitor FileOpener not available, using mock:', error);
+  initializedPlugins.FileOpener = mockFileOpener;
+}
+
+
+⸻
+
+5. Use FileOpener in fileHandler.ts for PDFs on Android
+
+Replace the AppLauncher.openUrl call with:
+
+if (capacitor.FileOpener) {
+  await capacitor.FileOpener.open({
+    filePath: fileInfo.uri,
+    contentType: 'application/pdf',
+    openWithDefault: true
+  });
+  console.log('[fileHandler] PDF opened using FileOpener');
+  return result.uri;
+}
+
+This is more reliable than AppLauncher.openUrl for PDF files.
+
+⸻
+
+✅ Summary
+
+You’ve now:
+	•	Safely added FileOpener support with fallbacks.
+	•	Preserved your platform abstraction.
+	•	Ensured Android can open .pdf files with the correct content type.
+
+Want me to paste the full updated capacitorAdapter.ts with FileOpener included?

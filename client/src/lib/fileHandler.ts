@@ -250,9 +250,205 @@ export async function downloadFile(filename: string, content: string): Promise<s
  * 
  * @param filename Name of the file to share
  * @param content Content of the file (base64 data or data URL)
+ * @param title Optional title for the share dialog
+ * @param text Optional text for the share dialog
+ * @returns Promise resolving to true if sharing was successful
  */
-export async function shareFile(filename: string, content: string): Promise<void> {
-  // This is a stub for future implementation
-  // Would use Capacitor Share plugin
-  throw new Error('Share functionality not yet implemented');
+export async function shareFile(
+  filename: string, 
+  content: string, 
+  title?: string, 
+  text?: string
+): Promise<boolean> {
+  try {
+    // Make sure we have valid inputs
+    if (!filename || !content) {
+      throw new Error('Invalid filename or content for sharing');
+    }
+    
+    // Clean the filename for safety
+    const safeFilename = filename.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+    
+    // Check if we're on a platform that supports sharing
+    if (isPlatform('android') || isPlatform('ios')) {
+      console.log(`[fileHandler] Sharing file on mobile: ${safeFilename}`);
+      
+      // Get Capacitor plugins
+      const capacitor = await initializeCapacitor();
+      
+      // For PDFs and other files, we need to save first then share the file
+      try {
+        // First, save the file to a temporary location
+        // Determine file type from extension for MIME type handling
+        const fileExtension = safeFilename.split('.').pop()?.toLowerCase() || '';
+        
+        // For data URLs, extract the base64 content
+        let base64Data = '';
+        if (content.startsWith('data:')) {
+          // Extract the base64 part after the comma
+          const parts = content.split(',');
+          if (parts.length > 1) {
+            base64Data = parts[1];
+          } else {
+            throw new Error('Invalid data URL format');
+          }
+        } else {
+          // Already base64, just use it
+          base64Data = content;
+        }
+        
+        // Clean the base64 data
+        const cleanBase64 = base64Data.replace(/[\r\n\s]/g, '');
+        
+        // Make sure Filesystem plugin is available
+        if (!capacitor.Filesystem) {
+          throw new Error('Filesystem plugin not available');
+        }
+        
+        console.log(`[fileHandler] Writing ${fileExtension} file for sharing, base64 length: ${cleanBase64.length}`);
+        
+        // Write to file system
+        const result = await capacitor.Filesystem.writeFile({
+          path: safeFilename,
+          data: cleanBase64,
+          directory: Directory.Cache, // Use cache directory for temporary files
+          recursive: true
+        });
+        
+        console.log(`[fileHandler] File saved for sharing at: ${result.uri}`);
+        
+        // Get the real file URI
+        const fileInfo = await capacitor.Filesystem.getUri({
+          path: safeFilename,
+          directory: Directory.Cache
+        });
+        
+        // Make sure Share plugin is available
+        if (!capacitor.Share) {
+          throw new Error('Share plugin not available');
+        }
+        
+        // Share the file
+        console.log(`[fileHandler] Sharing file from: ${fileInfo.uri}`);
+        
+        // We can share using either files or url approach
+        // Files array works better for documents, while URL works better for media
+        const shareResult = await capacitor.Share.share({
+          title: title || `Share ${safeFilename}`,
+          text: text || `Check out this ${fileExtension.toUpperCase()} file`,
+          url: fileInfo.uri,
+          files: [fileInfo.uri], // Some apps use the files array instead
+        });
+        
+        console.log(`[fileHandler] Share result:`, shareResult);
+        return true;
+      } catch (error) {
+        console.error('[fileHandler] Error sharing file:', error);
+        
+        // If file sharing fails, try sharing a text link/message as fallback
+        if (capacitor.Share) {
+          try {
+            console.log('[fileHandler] Trying fallback text sharing');
+            
+            await capacitor.Share.share({
+              title: title || `Share ${safeFilename}`,
+              text: text || `Sorry, I couldn't share the actual file. Please try another method.`,
+            });
+            
+            return true;
+          } catch (fallbackError) {
+            console.error('[fileHandler] Fallback sharing also failed:', fallbackError);
+            throw fallbackError;
+          }
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      // On web, use the Web Share API if available
+      console.log(`[fileHandler] Sharing file on web: ${safeFilename}`);
+      
+      if (navigator.share) {
+        // Convert base64 to a Blob for web sharing
+        let blob: Blob;
+        
+        // Handle data URLs vs raw base64
+        if (content.startsWith('data:')) {
+          // We have a data URL, can fetch directly
+          const res = await fetch(content);
+          blob = await res.blob();
+        } else {
+          // We have raw base64, need to decode and create blob
+          const byteString = atob(content);
+          const arrayBuffer = new ArrayBuffer(byteString.length);
+          const uint8Array = new Uint8Array(arrayBuffer);
+          
+          for (let i = 0; i < byteString.length; i++) {
+            uint8Array[i] = byteString.charCodeAt(i);
+          }
+          
+          // Determine MIME type from filename
+          let mimeType = 'application/octet-stream';
+          const fileExtension = safeFilename.split('.').pop()?.toLowerCase() || '';
+          
+          switch (fileExtension) {
+            case 'pdf': mimeType = 'application/pdf'; break;
+            case 'txt': mimeType = 'text/plain'; break;
+            case 'jpg': case 'jpeg': mimeType = 'image/jpeg'; break;
+            case 'png': mimeType = 'image/png'; break;
+            case 'tex': mimeType = 'application/x-tex'; break;
+            default: mimeType = 'application/octet-stream';
+          }
+          
+          blob = new Blob([uint8Array], { type: mimeType });
+        }
+        
+        // Create a File object from the Blob
+        const file = new File([blob], safeFilename, { 
+          type: blob.type,
+          lastModified: new Date().getTime()
+        });
+        
+        try {
+          // Try to share the file
+          await navigator.share({
+            title: title || `Share ${safeFilename}`,
+            text: text || `Check out this file`,
+            files: [file]
+          });
+          
+          console.log('[fileHandler] Web share successful');
+          return true;
+        } catch (error) {
+          console.error('[fileHandler] Web share error:', error);
+          
+          // Try share without file if sharing file is not supported
+          if (error instanceof TypeError && error.message.includes('files')) {
+            try {
+              await navigator.share({
+                title: title || `Share ${safeFilename}`,
+                text: text || `Check out this file`,
+              });
+              console.log('[fileHandler] Text-only web share successful');
+              return true;
+            } catch (fallbackError) {
+              console.error('[fileHandler] Text-only web share failed:', fallbackError);
+              throw fallbackError;
+            }
+          }
+          
+          throw error;
+        }
+      } else {
+        // Web Share API not available, fallback to download
+        console.log('[fileHandler] Web Share API not available, falling back to download');
+        await downloadFile(safeFilename, content);
+        alert('Sharing not available in this browser. File has been downloaded instead.');
+        return false;
+      }
+    }
+  } catch (error) {
+    console.error('[fileHandler] Share error:', error);
+    throw error;
+  }
 }

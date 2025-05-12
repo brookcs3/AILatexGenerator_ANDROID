@@ -204,7 +204,7 @@ export default function PDFPreview({ pdfData, title, onCompilePdf, isHtml = fals
                       try {
                         const filename = (title || "GeneratedDocument").replace(/[^a-z0-9]/gi, '_').toLowerCase();
                         // Import from our platform-aware file handler
-                        import('@/lib/fileHandler').then(({ downloadFile }) => {
+                        import('@/lib/fileHandler').then(({ downloadFile, shareFile }) => {
                           // For HTML, we need special handling
                           if (isHtml) {
                             // For HTML we still use the old utility
@@ -212,8 +212,25 @@ export default function PDFPreview({ pdfData, title, onCompilePdf, isHtml = fals
                               downloadPdf(pdfData, filename, isHtml);
                             });
                           } else {
-                            // For PDF, use our new platform-aware handler
-                            downloadFile(`${filename}.pdf`, pdfData);
+                            // Determine if we're on a mobile platform
+                            import('@/lib/platform').then(({ isPlatform }) => {
+                              const isMobile = isPlatform('android') || isPlatform('ios');
+                              const finalFilename = `${filename}.pdf`;
+                              
+                              // On mobile, offer share sheet instead of direct download
+                              if (isMobile) {
+                                // Show share dialog
+                                shareFile(
+                                  finalFilename, 
+                                  pdfData, 
+                                  `Share ${title || "Document"}`, 
+                                  `Here's a LaTeX document I generated: ${title || "Document"}`
+                                );
+                              } else {
+                                // For PDF on web, use our new platform-aware handler
+                                downloadFile(finalFilename, pdfData);
+                              }
+                            });
                           }
                         }).catch(err => {
                           console.error("Error importing fileHandler:", err);
