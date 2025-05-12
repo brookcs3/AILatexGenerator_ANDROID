@@ -74,7 +74,7 @@ export async function downloadFile(filename: string, content: string): Promise<s
       console.log(`[fileHandler] File saved to: ${result.uri}`);
       
       // For PDFs, handle special viewing case
-      if (fileExtension === 'pdf' && capacitor.AppLauncher) {
+      if (fileExtension === 'pdf') {
         try {
           // Get the real file URI
           const fileInfo = await capacitor.Filesystem.getUri({
@@ -84,14 +84,40 @@ export async function downloadFile(filename: string, content: string): Promise<s
           
           console.log(`[fileHandler] Opening PDF with external viewer: ${fileInfo.uri}`);
           
-          // Try to open with AppLauncher - this will use Android's default app launcher
-          await capacitor.AppLauncher.openUrl({ url: fileInfo.uri });
-          console.log('[fileHandler] PDF opened successfully with external viewer');
+          // First check if we have AppLauncher
+          if (capacitor.AppLauncher) {
+            try {
+              // Use content:// URI pattern which is more reliable on modern Android
+              const androidUri = fileInfo.uri;
+              console.log(`[fileHandler] Using URI for PDF opening: ${androidUri}`);
+              
+              // Try to open with AppLauncher - this will use Android's default app launcher
+              await capacitor.AppLauncher.openUrl({ url: androidUri });
+              console.log('[fileHandler] PDF opened successfully with external viewer');
+              return result.uri;
+            } catch (launcherError) {
+              console.error('[fileHandler] AppLauncher failed, trying browser fallback:', launcherError);
+              
+              // If AppLauncher fails, try browser intent as fallback
+              // This uses Android's ACTION_VIEW intent with a content:// URI
+              if ((window as any).open) {
+                // Try to open with browser intent
+                (window as any).open(fileInfo.uri, '_system');
+                console.log('[fileHandler] Attempted browser-based system open');
+                return result.uri;
+              }
+            }
+          } else {
+            console.warn('[fileHandler] AppLauncher not available');
+          }
+          
+          // If we reached here, both methods failed
+          console.error('[fileHandler] All PDF opening methods failed');
+          alert('PDF file saved in Documents folder. Please check your downloads or open it manually.');
         } catch (openError) {
           console.error('[fileHandler] Error opening PDF:', openError);
           // Don't throw here, the file was saved successfully even if we can't open it
-          // Let the user know they need to manually open the file
-          alert('PDF file saved in Documents folder. Please open it manually.');
+          alert('PDF file saved but could not be opened automatically. Please check your Documents folder.');
         }
       }
       

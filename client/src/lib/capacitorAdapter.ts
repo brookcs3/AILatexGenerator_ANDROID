@@ -12,6 +12,7 @@
 interface CapacitorPlugins {
   Filesystem?: any;
   AppLauncher?: any;
+  Share?: any;
 }
 
 // Mock implementations for web fallbacks
@@ -27,6 +28,41 @@ const mockAppLauncher = {
     // In web, just open in a new tab
     window.open(url, '_blank');
     return { completed: true };
+  }
+};
+
+const mockShare = {
+  share: async ({ title, text, url, files }: { title?: string, text?: string, url?: string, files?: string[] }) => {
+    // In web, just use the Web Share API if available, otherwise fall back to copying to clipboard
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        console.log('Shared via Web Share API');
+        return { value: true };
+      } catch (error) {
+        console.warn('Web Share API error:', error);
+      }
+    }
+    
+    // Fallback to clipboard + alert
+    let shareText = '';
+    if (title) shareText += `${title}\n\n`;
+    if (text) shareText += text;
+    if (url) shareText += `\n\n${url}`;
+    
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareText);
+        alert('Content copied to clipboard since sharing is not available in this browser');
+      } else {
+        alert('Sharing is not available in this browser');
+      }
+    } catch (error) {
+      console.error('Clipboard error:', error);
+      alert('Could not share content in this browser');
+    }
+    
+    return { value: false };
   }
 };
 
