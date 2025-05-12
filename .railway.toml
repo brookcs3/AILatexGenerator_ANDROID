@@ -10,5 +10,5 @@ preDeployCommand    = "npm install && npm install drizzle-kit -g && npm run db:p
 startCommand        = "NODE_ENV=production NODE_PATH=. npx tsx server/index.ts"
 
 healthcheckPath     = "/health"
-healthcheckTimeout  = 181
+healthcheckTimeout  = 180
 restartPolicyType   = "ON_FAILURE"
