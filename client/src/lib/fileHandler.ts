@@ -1,0 +1,179 @@
+/**
+ * File handling utilities for cross-platform support (Android and web)
+ */
+
+import { isPlatform } from './platform';
+
+// Define type for dynamic import of Capacitor Filesystem
+type FilesystemModule = {
+  Filesystem: {
+    writeFile: (options: {
+      path: string;
+      data: string;
+      directory?: string;
+      encoding?: string;
+      recursive?: boolean;
+    }) => Promise<{ uri: string }>;
+  };
+  Directory: {
+    Documents: string;
+    Data: string;
+    Cache: string;
+    External: string;
+    ExternalStorage: string;
+  };
+};
+
+/**
+ * Download or save a file, with platform-specific handling
+ * @param filename The name to save the file as
+ * @param content The content of the file (PDF data, etc.)
+ * @param mimeType The MIME type of the file
+ * @returns Promise resolving to the file URI or void
+ */
+export async function downloadFile(
+  filename: string,
+  content: string,
+  mimeType: string = 'application/pdf'
+): Promise<string | void> {
+  try {
+    // Android-specific handling
+    if (isPlatform('android')) {
+      return await saveFileOnAndroid(filename, content);
+    }
+    
+    // Default web handling
+    return saveFileOnWeb(filename, content, mimeType);
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    throw error;
+  }
+}
+
+/**
+ * Save a file on Android using Capacitor's Filesystem plugin
+ * @param filename The name to save the file as
+ * @param content The content of the file (typically base64 encoded)
+ * @returns Promise resolving to the file URI
+ */
+async function saveFileOnAndroid(filename: string, content: string): Promise<string> {
+  try {
+    // Dynamically import Capacitor modules
+    const { Filesystem, Directory } = await import('@capacitor/filesystem') as FilesystemModule;
+    
+    // Make sure we have a proper extension
+    if (!filename.includes('.')) {
+      filename = filename + '.pdf';
+    }
+    
+    // Ensure content is properly formatted for saving
+    // If content is not base64 encoded, encode it
+    if (!content.startsWith('data:') && !isBase64(content)) {
+      content = btoa(content);
+    }
+    
+    // Write the file to the Documents directory
+    const result = await Filesystem.writeFile({
+      path: filename,
+      data: content,
+      directory: Directory.Documents,
+      recursive: true
+    });
+    
+    console.log('File saved successfully on Android:', result.uri);
+    return result.uri;
+  } catch (error) {
+    console.error('Error saving file on Android:', error);
+    throw error;
+  }
+}
+
+/**
+ * Save a file in a web browser using the download attribute
+ * @param filename The name to save the file as
+ * @param content The content of the file
+ * @param mimeType The MIME type of the file
+ */
+function saveFileOnWeb(filename: string, content: string, mimeType: string): void {
+  try {
+    // Create a Blob with the file content
+    let blob: Blob;
+    
+    // If content is base64 encoded
+    if (isBase64(content) || content.startsWith('data:')) {
+      // Handle data URI
+      if (content.startsWith('data:')) {
+        // Extract the base64 part from the data URI
+        const base64Data = content.split(',')[1];
+        blob = base64ToBlob(base64Data, mimeType);
+      } else {
+        // Direct base64 content
+        blob = base64ToBlob(content, mimeType);
+      }
+    } else {
+      // Plain text content
+      blob = new Blob([content], { type: mimeType });
+    }
+    
+    // Create a temporary URL for the blob
+    const url = URL.createObjectURL(blob);
+    
+    // Create an anchor element for downloading
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    
+    // Add to DOM, trigger click, then clean up
+    document.body.appendChild(a);
+    a.click();
+    
+    // Cleanup
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  } catch (error) {
+    console.error('Error saving file on web:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check if a string is base64 encoded
+ * @param str The string to check
+ * @returns true if the string is base64 encoded
+ */
+function isBase64(str: string): boolean {
+  try {
+    // Check if string is valid base64
+    return btoa(atob(str)) === str;
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * Convert a base64 string to a Blob
+ * @param base64 The base64 string
+ * @param mimeType The MIME type of the resulting blob
+ * @returns A Blob containing the decoded data
+ */
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const byteCharacters = atob(base64);
+  const byteArrays = [];
+  
+  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+    const slice = byteCharacters.slice(offset, offset + 512);
+    
+    const byteNumbers = new Array(slice.length);
+    for (let i = 0; i < slice.length; i++) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+    
+    const byteArray = new Uint8Array(byteNumbers);
+    byteArrays.push(byteArray);
+  }
+  
+  return new Blob(byteArrays, { type: mimeType });
+}

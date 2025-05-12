@@ -69,100 +69,35 @@ export function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob([ab], { type: mimeType });
 }
 
-import { Filesystem, Directory } from '@capacitor/filesystem';
 import { isPlatform } from './platform';
+import { downloadFile } from './fileHandler';
 
-export async function downloadBlob(blob: Blob, filename: string): Promise<void> {
-  try {
-    // For Android (using Capacitor Filesystem)
-    if (isPlatform('android')) {
-      // Convert blob to base64 string
-      const reader = new FileReader();
-      
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          // The result will be a data URL like "data:application/pdf;base64,..."
-          const base64String = reader.result as string;
-          // Extract the base64 part without the data URL prefix
-          const base64 = base64String.split(',')[1];
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      
-      // Save the file using Capacitor Filesystem API
-      const result = await Filesystem.writeFile({
-        path: filename,
-        data: base64Data,
-        directory: Directory.Documents,  // Saves to the Documents folder
-        recursive: true
-      });
-      
-      console.log(`File saved to ${result.uri}`);
-      
-      // Show a toast or alert to let the user know where the file was saved
-      alert(`Your file "${filename}" has been saved to your Documents folder. You can find it in your device's file manager.`);
-      
-      return;
-    }
-    
-    // For web (using browser download)
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    
-    // Force a meaningful filename that appears in the browser's save dialog
-    a.setAttribute("download", filename);
-    
-    // For Safari
-    if (navigator.userAgent.indexOf("Safari") > -1 && navigator.userAgent.indexOf("Chrome") === -1) {
-      document.body.appendChild(a);
-      a.dispatchEvent(new MouseEvent('click', { 
-        bubbles: true, 
-        cancelable: true, 
-        view: window 
-      }));
-      document.body.removeChild(a);
-    } else {
-      // Standard approach for most browsers
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-    
-    setTimeout(() => {
-      // Clean up the URL object after download has started
-      URL.revokeObjectURL(url);
-    }, 100);
-  } catch (error) {
-    console.error('Error downloading file:', error);
-    alert('Failed to download file. Please try again.');
-  }
-}
-
+/**
+ * Downloads a PDF or HTML document, handling platform-specific behaviors for Android vs web
+ * @param base64Data Base64 string of the file content
+ * @param filename Name to save the file as (without extension)
+ * @param isHtml Whether the content is HTML (default is PDF)
+ */
 export async function downloadPdf(base64Data: string, filename: string, isHtml: boolean = false): Promise<void> {
   try {
     // Create a properly formatted filename from the title
     const properFilename = getReadableFilename(filename);
     
-    if (isHtml) {
-      // Handle HTML content
-      const blob = base64ToBlob(base64Data, "text/html");
-      
-      // Download as HTML file
-      await downloadBlob(blob, `${properFilename}.html`);
-      
-      console.log(`HTML download initiated with filename: ${properFilename}.html`);
-    } else {
-      // Handle PDF content (default)
-      const blob = base64ToBlob(base64Data, "application/pdf");
-      
-      // Download as PDF file
-      await downloadBlob(blob, `${properFilename}.pdf`);
-      
-      console.log(`PDF download initiated with filename: ${properFilename}.pdf`);
+    // Determine the file extension and MIME type
+    const extension = isHtml ? 'html' : 'pdf';
+    const mimeType = isHtml ? 'text/html' : 'application/pdf';
+    const fullFilename = `${properFilename}.${extension}`;
+    
+    // Use our platform-aware file downloader
+    await downloadFile(fullFilename, base64Data, mimeType);
+    
+    console.log(`${extension.toUpperCase()} download initiated with filename: ${fullFilename}`);
+    
+    // Show a toast or alert to let the user know the file was saved (Android only)
+    if (isPlatform('android')) {
+      setTimeout(() => {
+        alert(`Your file "${fullFilename}" has been saved to your Documents folder. You can find it in your device's file manager.`);
+      }, 500);
     }
   } catch (error) {
     console.error("Error downloading document:", error);
