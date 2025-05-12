@@ -69,42 +69,80 @@ export function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob([ab], { type: mimeType });
 }
 
-export function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  
-  // Force a meaningful filename that appears in the browser's save dialog
-  // Some browsers may ignore this, but most modern browsers respect it
-  a.setAttribute("download", filename);
-  
-  // For older or problematic browsers, we can try to set Content-Disposition
-  // Note: This may not work in all browsers due to security restrictions
-  if (navigator.userAgent.indexOf("Safari") > -1 && navigator.userAgent.indexOf("Chrome") === -1) {
-    // Special handling for Safari which may ignore download attribute
-    // We create a temporary link and simulate a user interaction
-    document.body.appendChild(a);
-    a.dispatchEvent(new MouseEvent('click', { 
-      bubbles: true, 
-      cancelable: true, 
-      view: window 
-    }));
-    document.body.removeChild(a);
-  } else {
-    // Standard approach for most browsers
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { isPlatform } from './platform';
+
+export async function downloadBlob(blob: Blob, filename: string): Promise<void> {
+  try {
+    // For Android (using Capacitor Filesystem)
+    if (isPlatform('android')) {
+      // Convert blob to base64 string
+      const reader = new FileReader();
+      
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          // The result will be a data URL like "data:application/pdf;base64,..."
+          const base64String = reader.result as string;
+          // Extract the base64 part without the data URL prefix
+          const base64 = base64String.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      
+      // Save the file using Capacitor Filesystem API
+      const result = await Filesystem.writeFile({
+        path: filename,
+        data: base64Data,
+        directory: Directory.Documents,  // Saves to the Documents folder
+        recursive: true
+      });
+      
+      console.log(`File saved to ${result.uri}`);
+      
+      // Show a toast or alert to let the user know where the file was saved
+      alert(`File saved to Documents folder: ${filename}`);
+      
+      return;
+    }
+    
+    // For web (using browser download)
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    
+    // Force a meaningful filename that appears in the browser's save dialog
+    a.setAttribute("download", filename);
+    
+    // For Safari
+    if (navigator.userAgent.indexOf("Safari") > -1 && navigator.userAgent.indexOf("Chrome") === -1) {
+      document.body.appendChild(a);
+      a.dispatchEvent(new MouseEvent('click', { 
+        bubbles: true, 
+        cancelable: true, 
+        view: window 
+      }));
+      document.body.removeChild(a);
+    } else {
+      // Standard approach for most browsers
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    
+    setTimeout(() => {
+      // Clean up the URL object after download has started
+      URL.revokeObjectURL(url);
+    }, 100);
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    alert('Failed to download file. Please try again.');
   }
-  
-  setTimeout(() => {
-    // Clean up the URL object after download has started
-    URL.revokeObjectURL(url);
-  }, 100);
 }
 
-export function downloadPdf(base64Data: string, filename: string, isHtml: boolean = false): void {
+export async function downloadPdf(base64Data: string, filename: string, isHtml: boolean = false): Promise<void> {
   try {
     // Create a properly formatted filename from the title
     const properFilename = getReadableFilename(filename);
@@ -114,7 +152,7 @@ export function downloadPdf(base64Data: string, filename: string, isHtml: boolea
       const blob = base64ToBlob(base64Data, "text/html");
       
       // Download as HTML file
-      downloadBlob(blob, `${properFilename}.html`);
+      await downloadBlob(blob, `${properFilename}.html`);
       
       console.log(`HTML download initiated with filename: ${properFilename}.html`);
     } else {
@@ -122,7 +160,7 @@ export function downloadPdf(base64Data: string, filename: string, isHtml: boolea
       const blob = base64ToBlob(base64Data, "application/pdf");
       
       // Download as PDF file
-      downloadBlob(blob, `${properFilename}.pdf`);
+      await downloadBlob(blob, `${properFilename}.pdf`);
       
       console.log(`PDF download initiated with filename: ${properFilename}.pdf`);
     }
