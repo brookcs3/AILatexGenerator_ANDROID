@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.aitexgen.latex',
   appName: 'AILatexGenerator',
-  webDir: 'dist',
+  webDir: 'dist/public',
   server: {
     // Enable localhost for debugging - remove for production
     androidScheme: "https",
