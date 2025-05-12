@@ -102,7 +102,7 @@ export async function downloadBlob(blob: Blob, filename: string): Promise<void> 
       console.log(`File saved to ${result.uri}`);
       
       // Show a toast or alert to let the user know where the file was saved
-      alert(`File saved to Documents folder: ${filename}`);
+      alert(`Your file "${filename}" has been saved to your Documents folder. You can find it in your device's file manager.`);
       
       return;
     }

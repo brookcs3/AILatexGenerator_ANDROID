@@ -588,7 +588,8 @@ export default function Home() {
       // Check if the content is HTML (from fallback mechanism)
       const isHtml = editorState.compilationResult?.isHtml || false;
       
-      downloadPdf(
+      // Use await with the downloadPdf function since it's now async
+      await downloadPdf(
         editorState.compilationResult.pdf,
         titleToUse,
         isHtml
@@ -612,7 +613,7 @@ export default function Home() {
       
       // Fallback to basic download if title extraction fails
       const isHtml = editorState.compilationResult?.isHtml || false;
-      downloadPdf(
+      await downloadPdf(
         editorState.compilationResult.pdf, 
         editorState.title || "latex-document",
         isHtml

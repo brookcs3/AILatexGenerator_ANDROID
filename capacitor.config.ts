@@ -18,7 +18,15 @@ const config: CapacitorConfig = {
     }
   },
   plugins: {
-    // Plugins configuration will be added later when RevenueCat is set up
+    // Filesystem plugin configuration for file downloads
+    Filesystem: {
+      // Allow app to access Documents directory
+      accessible: ["Documents"],
+    },
+    // RevenueCat configuration will be added when set up
+    PurchasesPlugin: {
+      // To be configured when Google Play Console is set up
+    }
   },
   // Add debugging information
   loggingBehavior: "debug"
