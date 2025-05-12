@@ -377,10 +377,11 @@ export default function Home() {
       return;
     }
     
-    // Guest mode has been disabled
+    // Guest mode is ENABLED
+    const GUEST_MODE = true;
     
-    // Only authenticated users can proceed with generation
-    if (!session.isAuthenticated) {
+    // Only authenticated users can proceed with generation (unless guest mode is on)
+    if (!session.isAuthenticated && !GUEST_MODE) {
       return;
     }
     
