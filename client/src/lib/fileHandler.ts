@@ -39,24 +39,37 @@ export async function downloadFile(
  */
 async function saveFileOnAndroid(filename: string, content: string): Promise<string> {
   try {
+    console.log('[Android] Starting file save process for', filename);
+    
     // Initialize Capacitor if not already initialized
     await initializeCapacitor();
+    console.log('[Android] Capacitor initialized:', isCapacitorInitialized());
     
     // Make sure we have a proper extension
     if (!filename.includes('.')) {
       filename = filename + '.pdf';
+      console.log('[Android] Added extension, filename is now:', filename);
     }
     
+    // Log content info for debugging
+    console.log('[Android] Content format check - isBase64:', isBase64(content), 
+                'starts with data:', content.startsWith('data:'),
+                'content length:', content.length);
+
     // Ensure content is properly formatted for saving
     // If content is not base64 encoded, encode it
     if (!content.startsWith('data:') && !isBase64(content)) {
+      console.log('[Android] Content is not base64, converting...');
       content = btoa(content);
     }
     
     // Extract base64 data if in data URL format
     if (content.startsWith('data:')) {
+      console.log('[Android] Content is a data URL, extracting base64 part...');
       content = content.split(',')[1];
     }
+    
+    console.log('[Android] About to write file with length:', content.length);
     
     // Write the file to the Documents directory
     const result = await Filesystem.writeFile({
@@ -64,12 +77,27 @@ async function saveFileOnAndroid(filename: string, content: string): Promise<str
       data: content,
       directory: Directory.Documents,
       recursive: true
+    }).catch(e => {
+      console.error('[Android] Filesystem.writeFile error details:', JSON.stringify(e));
+      throw e;
     });
     
-    console.log('File saved successfully on Android:', result.uri);
+    console.log('[Android] File saved successfully:', result.uri);
+    
+    // On Android, we also need to make a notification to the user
+    if (isPlatform('android')) {
+      alert(`PDF saved to Documents folder as "${filename}"`);
+    }
+    
     return result.uri;
   } catch (error) {
-    console.error('Error saving file on Android:', error);
+    console.error('[Android] Error saving file:', error);
+    
+    // Show more detailed error to user
+    if (isPlatform('android')) {
+      alert(`Could not save PDF: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    
     throw error;
   }
 }
