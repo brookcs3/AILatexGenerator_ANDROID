@@ -1,113 +1,88 @@
 /**
- * Platform detection utilities
+ * Platform detection utility
  * 
- * Used to determine if we're running on Android, iOS, or web
+ * Provides functions to detect the current platform (web, Android, iOS)
+ * and adapt the app's behavior accordingly.
  */
-
-let cachedPlatformChecks: Record<string, boolean> = {};
 
 /**
- * Detects if we're running on a specific platform
- * 
- * @param platform The platform to check for ('android', 'ios', 'capacitor', 'web')
- * @returns boolean indicating if we're on that platform
+ * Platform types supported by the app
  */
-export function isPlatform(platform: string): boolean {
-  // Use cached result if available
-  if (cachedPlatformChecks[platform] !== undefined) {
-    return cachedPlatformChecks[platform];
+export type PlatformType = 'web' | 'android' | 'ios';
+
+/**
+ * Cached platform detection result to avoid repeated checks
+ */
+let _detectedPlatform: PlatformType | null = null;
+
+/**
+ * Detects the current platform
+ * @returns The current platform type
+ */
+export function detectPlatform(): PlatformType {
+  // Return cached result if available
+  if (_detectedPlatform) {
+    return _detectedPlatform;
   }
   
-  // Android detection
-  if (platform === 'android') {
-    const isAndroid = 
-      typeof window !== 'undefined' && 
-      // Check for Android in the user agent
-      /android/i.test(window.navigator.userAgent) ||
-      // Check for Capacitor's Android platform flag
-      !!(window as any).Capacitor && 
-      (window as any).Capacitor.getPlatform() === 'android';
+  try {
+    // Check if Capacitor is available (Android/iOS)
+    if (typeof window !== 'undefined' && 
+        'Capacitor' in window && 
+        (window as any).Capacitor?.isNative === true) {
       
-    cachedPlatformChecks[platform] = isAndroid;
-    return isAndroid;
-  }
-  
-  // iOS detection
-  if (platform === 'ios') {
-    const isIOS = 
-      typeof window !== 'undefined' && 
-      // Check for iOS/iPadOS in the user agent 
-      (/iPad|iPhone|iPod/.test(window.navigator.userAgent) || 
-       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) ||
-      // Check for Capacitor's iOS platform flag
-      !!(window as any).Capacitor && 
-      (window as any).Capacitor.getPlatform() === 'ios';
+      // Determine if Android or iOS
+      const userAgent = navigator.userAgent.toLowerCase();
       
-    cachedPlatformChecks[platform] = isIOS;
-    return isIOS;
+      if (userAgent.indexOf('android') > -1) {
+        _detectedPlatform = 'android';
+      } else if (
+        userAgent.indexOf('iphone') > -1 || 
+        userAgent.indexOf('ipad') > -1 ||
+        userAgent.indexOf('ipod') > -1 ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) // Modern iPads
+      ) {
+        _detectedPlatform = 'ios';
+      } else {
+        // Default to web if we can't determine the mobile platform
+        _detectedPlatform = 'web';
+      }
+    } else {
+      // Default to web
+      _detectedPlatform = 'web';
+    }
+  } catch (error) {
+    console.error('Error detecting platform:', error);
+    // Default to web on error
+    _detectedPlatform = 'web';
   }
   
-  // Capacitor detection (any native platform)
-  if (platform === 'capacitor') {
-    const isCapacitor = 
-      typeof window !== 'undefined' && 
-      !!(window as any).Capacitor;
-      
-    cachedPlatformChecks[platform] = isCapacitor;
-    return isCapacitor;
-  }
-  
-  // Web detection (not a native platform)
-  if (platform === 'web') {
-    const isWeb = 
-      typeof window !== 'undefined' && 
-      (!(window as any).Capacitor || 
-       (window as any).Capacitor.getPlatform() === 'web');
-       
-    cachedPlatformChecks[platform] = isWeb;
-    return isWeb;
-  }
-  
-  // Default to false for unknown platforms
-  cachedPlatformChecks[platform] = false;
-  return false;
+  return _detectedPlatform;
 }
 
 /**
- * Gets the current platform name
- * 
- * @returns string platform name ('android', 'ios', 'web')
+ * Checks if the current platform matches the specified platform
+ * @param platform The platform to check against
+ * @returns True if the current platform matches
  */
-export function getPlatform(): string {
-  if (isPlatform('android')) return 'android';
-  if (isPlatform('ios')) return 'ios';
-  return 'web';
+export function isPlatform(platform: PlatformType): boolean {
+  return detectPlatform() === platform;
 }
 
 /**
- * Runs a platform-specific function
- * 
- * @param platformMap Map of platform-specific implementations
- * @returns The result of the platform-specific function
+ * Checks if the current platform is a mobile platform (Android or iOS)
+ * @returns True if the current platform is mobile
  */
-export function runForPlatform<T>(platformMap: Record<string, () => T>): T | undefined {
-  const platform = getPlatform();
-  
-  // Run the function for the current platform
-  if (platformMap[platform]) {
-    return platformMap[platform]();
-  }
-  
-  // Fallback to web if the platform-specific function doesn't exist
-  if (platform !== 'web' && platformMap['web']) {
-    return platformMap['web']();
-  }
-  
-  // Fallback to default if it exists
-  if (platformMap['default']) {
-    return platformMap['default']();
-  }
-  
-  // No implementation found
-  return undefined;
+export function isMobilePlatform(): boolean {
+  const platform = detectPlatform();
+  return platform === 'android' || platform === 'ios';
+}
+
+/**
+ * Allows overriding the detected platform for testing
+ * This should only be used in development/testing
+ * @param platform The platform to set
+ */
+export function _setTestPlatform(platform: PlatformType | null): void {
+  _detectedPlatform = platform;
 }

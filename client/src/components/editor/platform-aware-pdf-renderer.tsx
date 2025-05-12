@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { isPlatform } from '@/lib/platform';
 import { downloadFile } from '@/lib/fileHandler';
-import { AppLauncher } from '@capacitor/app-launcher';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { initializeCapacitor, Directory } from '@/lib/capacitorAdapter';
 
 interface PlatformAwarePDFRendererProps {
   pdfData: string;             // PDF data (base64 encoded)
@@ -41,6 +40,9 @@ export default function PlatformAwarePDFRenderer({
         throw new Error('No PDF data available');
       }
 
+      // Get Capacitor plugins
+      const capacitor = await initializeCapacitor();
+      
       // Generate safe filename
       const safeName = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const filename = `${safeName}_${Date.now()}.pdf`;
@@ -55,24 +57,26 @@ export default function PlatformAwarePDFRenderer({
       
       // Write to file system
       console.log(`[Android PDF] Writing PDF to filesystem: ${filename}`);
-      const result = await Filesystem.writeFile({
+      const result = await capacitor.Filesystem?.writeFile({
         path: filename,
         data: cleanBase64,
         directory: Directory.Cache,
         recursive: true
       });
       
-      console.log(`[Android PDF] File written successfully at: ${result.uri}`);
+      console.log(`[Android PDF] File written successfully at: ${result?.uri}`);
       
       // Get the real file URI
-      const fileInfo = await Filesystem.getUri({
+      const fileInfo = await capacitor.Filesystem?.getUri({
         path: filename,
         directory: Directory.Cache
       });
       
       // Launch the PDF viewer
-      console.log(`[Android PDF] Opening PDF with AppLauncher: ${fileInfo.uri}`);
-      await AppLauncher.openUrl({ url: fileInfo.uri });
+      console.log(`[Android PDF] Opening PDF with AppLauncher: ${fileInfo?.uri}`);
+      if (fileInfo?.uri) {
+        await capacitor.AppLauncher?.openUrl({ url: fileInfo.uri });
+      }
       
       // Signal successful load
       onLoad();
@@ -87,8 +91,10 @@ export default function PlatformAwarePDFRenderer({
     try {
       const filename = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
       await downloadFile(filename, pdfData);
+      onLoad(); // Signal successful load
     } catch (error) {
       console.error('[Web PDF] Error downloading PDF:', error);
+      onError(error instanceof Error ? error : new Error('Failed to download PDF'));
     }
   };
   

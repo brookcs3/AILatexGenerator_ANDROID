@@ -1,67 +1,121 @@
-import { isPlatform } from './platform';
-import { initializeCapacitor } from './capacitorAdapter';
+/**
+ * Platform-aware file handling utilities
+ * 
+ * This module provides file operations that work consistently across
+ * web and Android/iOS platforms by using the appropriate APIs
+ * for each platform.
+ */
+
+import { isPlatform } from '@/lib/platform';
+import { initializeCapacitor, Directory } from '@/lib/capacitorAdapter';
 
 /**
- * Platform-aware file downloading function
+ * Downloads or saves a file with platform-specific implementation
+ * On web: Uses browser download API
+ * On mobile: Uses Capacitor Filesystem and external viewer
  * 
- * For web: Creates a download via browser's download API
- * For Android: Uses Capacitor's Filesystem API to save to Documents folder
- * 
- * @param filename Filename to save as
- * @param content Base64 content of the file
+ * @param filename Name of the file to save
+ * @param content Content of the file (base64 data or data URL)
+ * @returns Promise resolving to the file location
  */
-export async function downloadFile(filename: string, content: string): Promise<void> {
-  console.log(`PDF download initiated with filename: ${filename}`);
+export async function downloadFile(filename: string, content: string): Promise<string> {
+  // Make sure we have valid inputs
+  if (!filename || !content) {
+    throw new Error('Invalid filename or content for download');
+  }
   
-  try {
-    // Remove data URL prefix if present
-    const base64Data = content.startsWith('data:') 
-      ? content.split(',')[1] 
-      : content;
+  // Clean the filename for safety
+  const safeFilename = filename.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+  
+  // For Android, use Capacitor Filesystem
+  if (isPlatform('android')) {
+    try {
+      console.log(`[fileHandler] Downloading file on Android: ${safeFilename}`);
       
-    if (isPlatform('android')) {
-      // Android implementation using Capacitor
-      const { Filesystem } = await initializeCapacitor();
+      // Get Capacitor plugins 
+      const capacitor = await initializeCapacitor();
       
-      if (!Filesystem) {
+      // Make sure we have the filesystem plugin
+      if (!capacitor.Filesystem) {
         throw new Error('Filesystem plugin not available');
       }
       
-      console.log('Using Capacitor Filesystem for Android download');
+      // For data URLs, extract the base64 content
+      const base64Data = content.startsWith('data:') 
+        ? content.split(',')[1] 
+        : content;
       
-      // Ensure the content is properly formatted
-      const cleanBase64 = base64Data.replace(/\s/g, '');
+      // Clean the base64 data
+      const cleanBase64 = base64Data.replace(/[\r\n\s]/g, '');
       
-      try {
-        // Save to Documents directory which is accessible to the user
-        const result = await Filesystem.writeFile({
-          path: filename,
-          data: cleanBase64,
-          directory: 'DOCUMENTS',
-          recursive: true
-        });
-        
-        console.log('File written successfully:', result.uri);
-        return;
-      } catch (fsError) {
-        console.error('Filesystem write error:', fsError);
-        throw fsError;
+      // Write to file system
+      const result = await capacitor.Filesystem.writeFile({
+        path: safeFilename,
+        data: cleanBase64,
+        directory: Directory.Documents,
+        recursive: true
+      });
+      
+      console.log(`[fileHandler] File saved to: ${result.uri}`);
+      
+      // If app launcher is available, open the file
+      if (capacitor.AppLauncher) {
+        try {
+          // Get the real file URI
+          const fileInfo = await capacitor.Filesystem.getUri({
+            path: safeFilename,
+            directory: Directory.Documents
+          });
+          
+          console.log(`[fileHandler] Opening file with external viewer: ${fileInfo.uri}`);
+          await capacitor.AppLauncher.openUrl({ url: fileInfo.uri });
+        } catch (openError) {
+          console.error('[fileHandler] Error opening file:', openError);
+          // Don't throw here, the file was saved successfully even if we can't open it
+        }
       }
-    } else {
-      // Web implementation using browser download
-      console.log('Using browser download for web');
       
-      // Create download link
+      return result.uri;
+    } catch (error) {
+      console.error('[fileHandler] Android file download error:', error);
+      throw error;
+    }
+  } 
+  // For web platform, use browser download API
+  else {
+    try {
+      console.log(`[fileHandler] Downloading file on web: ${safeFilename}`);
+      
+      // Make sure we're working with a data URL
+      const dataUrl = content.startsWith('data:') 
+        ? content 
+        : `data:application/octet-stream;base64,${content}`;
+      
+      // Create an anchor and trigger download
       const link = document.createElement('a');
-      link.href = content.startsWith('data:') ? content : `data:application/pdf;base64,${base64Data}`;
-      link.download = filename;
+      link.href = dataUrl;
+      link.download = safeFilename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      return;
+      
+      return 'browser-download';
+    } catch (error) {
+      console.error('[fileHandler] Web file download error:', error);
+      throw error;
     }
-  } catch (error) {
-    console.error('Error downloading file:', error);
-    throw error;
   }
+}
+
+/**
+ * Shares a file using the device's native share dialog
+ * Only available on mobile platforms
+ * 
+ * @param filename Name of the file to share
+ * @param content Content of the file (base64 data or data URL)
+ */
+export async function shareFile(filename: string, content: string): Promise<void> {
+  // This is a stub for future implementation
+  // Would use Capacitor Share plugin
+  throw new Error('Share functionality not yet implemented');
 }

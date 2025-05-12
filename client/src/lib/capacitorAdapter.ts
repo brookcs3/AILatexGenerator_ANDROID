@@ -1,24 +1,41 @@
 /**
- * CapacitorAdapter - Safely imports and initializes Capacitor plugins
+ * CapacitorAdapter - Safely initializes Capacitor plugins
  * 
- * This adapter prevents browser environments from crashing when 
- * importing Capacitor plugins, which are only available in native
- * environments like Android/iOS.
+ * This adapter prevents browser environments from crashing when trying to use
+ * Capacitor plugins, which are only available in native environments.
+ * 
+ * It provides a safe abstraction layer that gracefully falls back when
+ * running in web browsers instead of native apps.
  */
 
-// Define types for the plugins we use
+// Simple type for plugin interfaces
 interface CapacitorPlugins {
   Filesystem?: any;
-  App?: any;
-  Device?: any;
+  AppLauncher?: any;
 }
+
+// Mock implementations for web fallbacks
+const mockFilesystem = {
+  writeFile: async () => ({ uri: 'mock://file-not-available-in-browser' }),
+  readFile: async () => ({ data: '' }),
+  readdir: async () => ({ files: [] }),
+  getUri: async () => ({ uri: 'mock://file-not-available-in-browser' })
+};
+
+const mockAppLauncher = {
+  openUrl: async ({ url }: { url: string }) => {
+    // In web, just open in a new tab
+    window.open(url, '_blank');
+    return { completed: true };
+  }
+};
 
 // Cache for initialized plugins
 let initializedPlugins: CapacitorPlugins | null = null;
 
 /**
- * Safely initializes Capacitor plugins for use in the app
- * Returns an object with all available plugins
+ * Safely provides Capacitor plugins
+ * Will use real plugins on native platforms and fallbacks on web
  */
 export async function initializeCapacitor(): Promise<CapacitorPlugins> {
   // Return cached plugins if already initialized
@@ -30,39 +47,79 @@ export async function initializeCapacitor(): Promise<CapacitorPlugins> {
   initializedPlugins = {};
   
   try {
-    // Try to import Capacitor plugins
-    // These will fail in a browser environment but work in native apps
+    // Check if we're in a Capacitor app environment
+    const isCapacitorNative = typeof (window as any).Capacitor !== 'undefined' && 
+      (window as any).Capacitor.isNative === true;
     
-    // Filesystem for file operations
-    try {
-      const { Filesystem } = await import('@capacitor/filesystem');
-      initializedPlugins.Filesystem = Filesystem;
-      console.log('Capacitor Filesystem plugin initialized');
-    } catch (error) {
-      console.warn('Capacitor Filesystem not available:', error);
-    }
+    console.log(`Capacitor environment detected: ${isCapacitorNative ? 'Native' : 'Web'}`);
     
-    // App for app information and events
-    try {
-      const { App } = await import('@capacitor/app');
-      initializedPlugins.App = App;
-      console.log('Capacitor App plugin initialized');
-    } catch (error) {
-      console.warn('Capacitor App not available:', error);
-    }
-    
-    // Device for device information
-    try {
-      const { Device } = await import('@capacitor/device');
-      initializedPlugins.Device = Device;
-      console.log('Capacitor Device plugin initialized');
-    } catch (error) {
-      console.warn('Capacitor Device not available:', error);
+    if (isCapacitorNative) {
+      // We're in a native environment, try to load real plugins
+      
+      // Load Filesystem
+      try {
+        // Use global reference instead of direct import to prevent build issues
+        const cap = (window as any).Capacitor;
+        const plugins = cap.Plugins;
+        
+        if (plugins && plugins.Filesystem) {
+          initializedPlugins.Filesystem = plugins.Filesystem;
+          console.log('Capacitor Filesystem plugin initialized from global');
+        } else {
+          // Fallback to direct import if not in global plugins
+          const dynamicImport = new Function('return import("@capacitor/filesystem")')();
+          const fsModule = await dynamicImport;
+          initializedPlugins.Filesystem = fsModule.Filesystem;
+          console.log('Capacitor Filesystem plugin initialized from import');
+        }
+      } catch (error) {
+        console.warn('Capacitor Filesystem not available, using mock:', error);
+        initializedPlugins.Filesystem = mockFilesystem;
+      }
+      
+      // Load AppLauncher
+      try {
+        // Use global reference instead of direct import to prevent build issues
+        const cap = (window as any).Capacitor;
+        const plugins = cap.Plugins;
+        
+        if (plugins && plugins.AppLauncher) {
+          initializedPlugins.AppLauncher = plugins.AppLauncher;
+          console.log('Capacitor AppLauncher plugin initialized from global');
+        } else {
+          // Fallback to direct import if not in global plugins
+          const dynamicImport = new Function('return import("@capacitor/app-launcher")')();
+          const launcherModule = await dynamicImport;
+          initializedPlugins.AppLauncher = launcherModule.AppLauncher;
+          console.log('Capacitor AppLauncher plugin initialized from import');
+        }
+      } catch (error) {
+        console.warn('Capacitor AppLauncher not available, using mock:', error);
+        initializedPlugins.AppLauncher = mockAppLauncher;
+      }
+    } else {
+      // We're in a web environment, use mocks
+      console.log('Using web mocks for Capacitor plugins');
+      initializedPlugins.Filesystem = mockFilesystem;
+      initializedPlugins.AppLauncher = mockAppLauncher;
     }
     
     return initializedPlugins;
   } catch (error) {
     console.error('Error initializing Capacitor:', error);
-    return {};
+    // Return mocks as a fallback
+    return {
+      Filesystem: mockFilesystem,
+      AppLauncher: mockAppLauncher
+    };
   }
 }
+
+// Export constants for use in platform-aware components
+export const Directory = {
+  Documents: 'DOCUMENTS',
+  Data: 'DATA',
+  Cache: 'CACHE',
+  External: 'EXTERNAL',
+  ExternalStorage: 'EXTERNAL_STORAGE'
+};
