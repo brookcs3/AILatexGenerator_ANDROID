@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.aitexgen.latex',
   appName: 'AILatexGenerator',
-  webDir: 'client',
+  webDir: 'dist',
   server: {
     // Point to our Android-specific API server
     url: 'https://api-android.aitexgen.com',
@@ -16,9 +16,25 @@ const config: CapacitorConfig = {
     }
   },
   plugins: {
-    // Support Google Play Billing
-    CapacitorInAppPurchases: {
-      // Configured when we add the IAP plugin
+    // Configure Capacitor Purchases plugin
+    CapacitorPurchases: {
+      // RevenueCat API key would go here in production
+      // This is just a placeholder for testing
+      apiKey: "api_key_here",
+      // Configure the Google Play store
+      playStoreConfig: {
+        // Default products to offer in the Android app
+        products: [
+          {
+            id: "tier1_monthly",
+            type: "subscription"
+          },
+          {
+            id: "tier2_monthly",
+            type: "subscription"
+          }
+        ]
+      }
     }
   }
 };
