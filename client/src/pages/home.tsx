@@ -140,6 +140,9 @@ function extractMainSubject(paragraph: string): string | null {
   return null;
 }
 
+// GLOBAL GUEST MODE SETTING
+const GUEST_MODE = true;
+
 export default function Home() {
   const { session } = useContext(UserContext);
   const { setShowAuthPrompt } = useContext(AuthRequiredContext);
@@ -337,9 +340,9 @@ export default function Home() {
       user: session.user
     });
     
-    // Guest mode is disabled - non-authenticated users cannot generate content
+    // Guest mode is ENABLED - non-authenticated users can generate content
     
-    // If user is not authenticated, show auth prompt
+    // If user is not authenticated and guest mode is disabled, show auth prompt
     if (!session.isAuthenticated) {
       // Stop the generating animation if it was started
       setEditorState(prev => ({ ...prev, isGenerating: false }));
@@ -378,7 +381,6 @@ export default function Home() {
     }
     
     // Guest mode is ENABLED
-    const GUEST_MODE = true;
     
     // Only authenticated users can proceed with generation (unless guest mode is on)
     if (!session.isAuthenticated && !GUEST_MODE) {
@@ -543,9 +545,9 @@ export default function Home() {
       return;
     }
     
-    // Guest mode is disabled - non-authenticated users cannot download PDFs
+    // Guest mode is ENABLED - non-authenticated users can download PDFs
     
-    // If user is not authenticated, show auth prompt
+    // If user is not authenticated and guest mode is disabled, show auth prompt
     if (!session.isAuthenticated) {
       console.log("User not authenticated, showing auth prompt for PDF download");
       
