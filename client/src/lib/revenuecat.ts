@@ -1,14 +1,16 @@
-import { Capacitor } from '@capacitor/core';
-import { Purchases, PurchasesConfiguration } from '@revenuecat/purchases-capacitor';
+/**
+ * RevenueCat integration for Android app
+ * This handles in-app purchases and subscriptions using RevenueCat's SDK
+ */
 
-// Check if we're running on Android
-export const isAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+import { isPlatform } from '@/lib/platform';
+import { apiRequest } from '@/lib/queryClient';
 
-// Product and offering types from RevenueCat
-export interface Product {
+// Type definitions for RevenueCat entities
+interface Product {
   identifier: string;
-  description: string;
   title: string;
+  description: string;
   price: number;
   priceString: string;
   currencyCode: string;
@@ -19,201 +21,349 @@ export interface Product {
     cycles: number;
     periodUnit: string;
   };
-  subscriptionPeriod?: string;
 }
 
-export interface Offering {
-  identifier: string;
-  serverDescription: string;
-  metadata: Record<string, any>;
-  availablePackages: Package[];
-}
-
-export interface Package {
+interface Package {
   identifier: string;
   packageType: string;
   product: Product;
   offeringIdentifier: string;
 }
 
-export interface CustomerInfo {
+interface Offering {
+  identifier: string;
+  serverDescription: string;
+  availablePackages: Package[];
+}
+
+interface CustomerInfo {
   entitlements: {
-    active: Record<string, EntitlementInfo>;
-    all: Record<string, EntitlementInfo>;
+    active: Record<string, {
+      identifier: string;
+      isActive: boolean;
+      willRenew: boolean;
+      periodType: string;
+      latestPurchaseDate: string;
+      latestPurchaseDateMillis: number;
+      originalPurchaseDate: string;
+      originalPurchaseDateMillis: number;
+      expirationDate: string | null;
+      expirationDateMillis: number | null;
+      store: string;
+      productIdentifier: string;
+      isSandbox: boolean;
+      unsubscribeDetectedAt: string | null;
+      billingIssueDetectedAt: string | null;
+    }>
   };
   activeSubscriptions: string[];
   allPurchasedProductIdentifiers: string[];
-  nonSubscriptionTransactions: any[];
+  latestExpirationDate: string | null;
   firstSeen: string;
   originalAppUserId: string;
   requestDate: string;
-  latestExpirationDate: string | null;
-  originalApplicationVersion: string | null;
-  originalPurchaseDate: string | null;
-  managementURL: string | null;
+  aliases: string[];
+  nonSubscriptionTransactions: Array<{
+    productIdentifier: string;
+    purchaseDate: string;
+    transactionIdentifier: string;
+    storeTransactionIdentifier: string;
+  }>;
 }
 
-export interface EntitlementInfo {
-  identifier: string;
-  isActive: boolean;
-  willRenew: boolean;
-  periodType: string;
-  latestPurchaseDate: string;
-  originalPurchaseDate: string;
-  expirationDate: string | null;
-  productIdentifier: string;
-  isSandbox: boolean;
+// Mock Purchases interface when not running on Android
+interface PurchasesMock {
+  setLogLevel: (level: number) => void;
+  getOfferings: () => Promise<{ current: Offering | null; all: Record<string, Offering> }>;
+  restorePurchases: () => Promise<CustomerInfo>;
+  purchasePackage: (pkg: Package) => Promise<{ customerInfo: CustomerInfo }>;
+  getCustomerInfo: () => Promise<CustomerInfo>;
+  logIn: (userId: string) => Promise<{ customerInfo: CustomerInfo, created: boolean }>;
+  logOut: () => Promise<null>;
 }
 
-/**
- * Initialize RevenueCat purchases when app starts
- * This should be called as early as possible in your app
- */
-export const initializePurchases = async (): Promise<void> => {
-  if (!isAndroid) {
-    console.log('Not on Android, skipping RevenueCat initialization');
-    return;
-  }
-
-  try {
-    const configuration: PurchasesConfiguration = {
-      apiKey: 'your_revenuecat_api_key', // This will be replaced by the value in capacitor.config.ts
+// These declare the RevenueCat SDK types that will be available in the native app
+declare global {
+  interface Window {
+    Purchases?: {
+      LOG_LEVEL: {
+        VERBOSE: number;
+        DEBUG: number;
+        INFO: number;
+        WARN: number;
+        ERROR: number;
+      };
+      setLogLevel: (level: number) => void;
+      getOfferings: () => Promise<{ current: any | null; all: Record<string, any> }>;
+      restorePurchases: () => Promise<any>;
+      purchasePackage: (pkg: any) => Promise<{ customerInfo: any }>;
+      getCustomerInfo: () => Promise<any>;
+      logIn: (userId: string) => Promise<{ customerInfo: any, created: boolean }>;
+      logOut: () => Promise<null>;
     };
+  }
+}
 
-    await Purchases.configure(configuration);
-    console.log('RevenueCat purchases initialized');
+// Create a mock implementation for web development
+const createMockPurchases = (): PurchasesMock => {
+  console.log('Creating mock RevenueCat Purchases instance (web mode)');
+  
+  return {
+    setLogLevel: (level: number) => {
+      console.log(`[RevenueCat Mock] Set log level to ${level}`);
+    },
+    
+    getOfferings: async () => {
+      console.log('[RevenueCat Mock] Getting offerings');
+      
+      // Return mock offerings for development
+      const mockProduct: Product = {
+        identifier: 'subscriptionMonthly',
+        title: 'Monthly Subscription',
+        description: 'Unlimited generations and GPT-4 access',
+        price: 9.99,
+        priceString: '$9.99',
+        currencyCode: 'USD',
+        introPrice: {
+          price: 4.99,
+          priceString: '$4.99',
+          period: '1 month',
+          cycles: 1,
+          periodUnit: 'MONTH'
+        }
+      };
+      
+      const mockPackage: Package = {
+        identifier: 'monthly',
+        packageType: 'MONTHLY',
+        product: mockProduct,
+        offeringIdentifier: 'default'
+      };
+      
+      const mockOffering: Offering = {
+        identifier: 'default',
+        serverDescription: 'Default offering',
+        availablePackages: [mockPackage]
+      };
+      
+      return {
+        current: mockOffering,
+        all: {
+          'default': mockOffering
+        }
+      };
+    },
+    
+    restorePurchases: async () => {
+      console.log('[RevenueCat Mock] Restoring purchases');
+      return createMockCustomerInfo(false);
+    },
+    
+    purchasePackage: async (pkg: Package) => {
+      console.log(`[RevenueCat Mock] Purchasing package: ${pkg.identifier}`);
+      
+      // Report the mock purchase to our backend
+      try {
+        await apiRequest('POST', '/api/android/validate-receipt', {
+          packageId: pkg.identifier,
+          productId: pkg.product.identifier,
+          price: pkg.product.price,
+          transactionId: `mock-${Date.now()}`
+        });
+      } catch (error) {
+        console.error('[RevenueCat Mock] Error reporting purchase to backend:', error);
+      }
+      
+      return {
+        customerInfo: createMockCustomerInfo(true)
+      };
+    },
+    
+    getCustomerInfo: async () => {
+      console.log('[RevenueCat Mock] Getting customer info');
+      
+      // In mock mode, check with backend to determine subscription status
+      try {
+        const response = await apiRequest('GET', '/api/auth/me');
+        const data = await response.json();
+        
+        const hasSubscription = data.user?.subscriptionTier === 'premium';
+        return createMockCustomerInfo(hasSubscription);
+      } catch (error) {
+        console.error('[RevenueCat Mock] Error getting user info:', error);
+        return createMockCustomerInfo(false);
+      }
+    },
+    
+    logIn: async (userId: string) => {
+      console.log(`[RevenueCat Mock] Logging in user: ${userId}`);
+      return {
+        customerInfo: createMockCustomerInfo(false),
+        created: false
+      };
+    },
+    
+    logOut: async () => {
+      console.log('[RevenueCat Mock] Logging out');
+      return null;
+    }
+  };
+};
+
+// Helper to create mock customer info
+const createMockCustomerInfo = (hasSubscription: boolean): CustomerInfo => {
+  const now = new Date();
+  const nextMonth = new Date();
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  
+  return {
+    entitlements: {
+      active: hasSubscription ? {
+        'premium': {
+          identifier: 'premium',
+          isActive: true,
+          willRenew: true,
+          periodType: 'NORMAL',
+          latestPurchaseDate: now.toISOString(),
+          latestPurchaseDateMillis: now.getTime(),
+          originalPurchaseDate: now.toISOString(),
+          originalPurchaseDateMillis: now.getTime(),
+          expirationDate: nextMonth.toISOString(),
+          expirationDateMillis: nextMonth.getTime(),
+          store: 'PLAY_STORE',
+          productIdentifier: 'subscriptionMonthly',
+          isSandbox: true,
+          unsubscribeDetectedAt: null,
+          billingIssueDetectedAt: null
+        }
+      } : {}
+    },
+    activeSubscriptions: hasSubscription ? ['subscriptionMonthly'] : [],
+    allPurchasedProductIdentifiers: hasSubscription ? ['subscriptionMonthly'] : [],
+    latestExpirationDate: hasSubscription ? nextMonth.toISOString() : null,
+    firstSeen: now.toISOString(),
+    originalAppUserId: 'mock-user',
+    requestDate: now.toISOString(),
+    aliases: ['mock-user'],
+    nonSubscriptionTransactions: []
+  };
+};
+
+// Get the appropriate Purchases instance based on platform
+let purchasesInstance: PurchasesMock | typeof window.Purchases | null = null;
+
+export const getPurchases = (): PurchasesMock | typeof window.Purchases | null => {
+  if (purchasesInstance) {
+    return purchasesInstance;
+  }
+  
+  if (isPlatform('android') && window.Purchases) {
+    console.log('Using native RevenueCat Purchases for Android');
+    purchasesInstance = window.Purchases;
+    
+    // Enable verbose logging in development
+    if (process.env.NODE_ENV !== 'production' && purchasesInstance.LOG_LEVEL) {
+      purchasesInstance.setLogLevel(purchasesInstance.LOG_LEVEL.VERBOSE);
+    }
+  } else {
+    console.log('Using mock RevenueCat Purchases (web mode)');
+    purchasesInstance = createMockPurchases();
+  }
+  
+  return purchasesInstance;
+};
+
+// Initialize RevenueCat for the current user
+export const initializeRevenueCat = async (userId?: string | null): Promise<boolean> => {
+  try {
+    const purchases = getPurchases();
+    
+    if (!purchases) {
+      console.error('RevenueCat SDK not available');
+      return false;
+    }
+    
+    if (userId) {
+      // Log in the user to RevenueCat
+      console.log(`Logging in user ${userId} to RevenueCat`);
+      await purchases.logIn(userId.toString());
+    }
+    
+    return true;
   } catch (error) {
     console.error('Failed to initialize RevenueCat:', error);
-  }
-};
-
-/**
- * Get available products/subscriptions from RevenueCat
- */
-export const getOfferings = async (): Promise<Offering | null> => {
-  if (!isAndroid) {
-    console.log('Not on Android, skipping get offerings');
-    return null;
-  }
-
-  try {
-    const offerings = await Purchases.getOfferings();
-    return offerings.current || null;
-  } catch (error) {
-    console.error('Error getting offerings:', error);
-    return null;
-  }
-};
-
-/**
- * Purchase a package through RevenueCat
- */
-export const purchasePackage = async (packageToPurchase: Package): Promise<CustomerInfo | null> => {
-  if (!isAndroid) {
-    console.log('Not on Android, skipping purchase package');
-    return null;
-  }
-
-  try {
-    const { customerInfo } = await Purchases.purchasePackage({ aPackage: packageToPurchase });
-    
-    // After successful purchase, sync with our backend
-    await syncPurchasesWithBackend();
-    
-    return customerInfo;
-  } catch (error) {
-    console.error('Error purchasing package:', error);
-    return null;
-  }
-};
-
-/**
- * Restore purchases from Google Play
- */
-export const restorePurchases = async (): Promise<CustomerInfo | null> => {
-  if (!isAndroid) {
-    console.log('Not on Android, skipping restore purchases');
-    return null;
-  }
-
-  try {
-    const { customerInfo } = await Purchases.restorePurchases();
-    
-    // After restoring, sync with our backend
-    await syncPurchasesWithBackend();
-    
-    return customerInfo;
-  } catch (error) {
-    console.error('Error restoring purchases:', error);
-    return null;
-  }
-};
-
-/**
- * Get current customer info (subscription status)
- */
-export const getCustomerInfo = async (): Promise<CustomerInfo | null> => {
-  if (!isAndroid) {
-    console.log('Not on Android, skipping get customer info');
-    return null;
-  }
-
-  try {
-    const { customerInfo } = await Purchases.getCustomerInfo();
-    return customerInfo;
-  } catch (error) {
-    console.error('Error getting customer info:', error);
-    return null;
-  }
-};
-
-/**
- * Check if user has active subscription
- */
-export const hasActiveSubscription = async (): Promise<boolean> => {
-  const customerInfo = await getCustomerInfo();
-  
-  if (!customerInfo) {
     return false;
   }
-  
-  // Check if any entitlements are active
-  const activeEntitlements = Object.values(customerInfo.entitlements.active);
-  return activeEntitlements.length > 0;
 };
 
-/**
- * Sync RevenueCat purchases with our backend
- */
-export const syncPurchasesWithBackend = async (): Promise<void> => {
-  if (!isAndroid) {
-    return;
-  }
-
+// Get available subscription offerings
+export const getSubscriptionOfferings = async (): Promise<Offering | null> => {
   try {
-    const customerInfo = await getCustomerInfo();
+    const purchases = getPurchases();
     
-    if (!customerInfo) {
-      console.log('No customer info to sync with backend');
-      return;
+    if (!purchases) {
+      console.error('RevenueCat SDK not available');
+      return null;
     }
     
-    // Make API request to our backend
-    const response = await fetch('/api/android/sync-subscription', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        customerInfo,
-      }),
-      credentials: 'include',
-    });
-    
-    if (!response.ok) {
-      console.error('Failed to sync purchases with backend:', await response.text());
-    }
+    const offerings = await purchases.getOfferings();
+    return offerings.current;
   } catch (error) {
-    console.error('Error syncing purchases with backend:', error);
+    console.error('Failed to get offerings:', error);
+    return null;
+  }
+};
+
+// Purchase a subscription package
+export const purchaseSubscription = async (packageToPurchase: Package): Promise<boolean> => {
+  try {
+    const purchases = getPurchases();
+    
+    if (!purchases) {
+      console.error('RevenueCat SDK not available');
+      return false;
+    }
+    
+    await purchases.purchasePackage(packageToPurchase);
+    return true;
+  } catch (error) {
+    console.error('Failed to purchase subscription:', error);
+    return false;
+  }
+};
+
+// Check if user has active premium entitlement
+export const checkPremiumEntitlement = async (): Promise<boolean> => {
+  try {
+    const purchases = getPurchases();
+    
+    if (!purchases) {
+      console.error('RevenueCat SDK not available');
+      return false;
+    }
+    
+    const customerInfo = await purchases.getCustomerInfo();
+    return !!customerInfo.entitlements.active['premium'];
+  } catch (error) {
+    console.error('Failed to check premium entitlement:', error);
+    return false;
+  }
+};
+
+// Restore purchases from Google Play
+export const restorePurchases = async (): Promise<boolean> => {
+  try {
+    const purchases = getPurchases();
+    
+    if (!purchases) {
+      console.error('RevenueCat SDK not available');
+      return false;
+    }
+    
+    await purchases.restorePurchases();
+    return true;
+  } catch (error) {
+    console.error('Failed to restore purchases:', error);
+    return false;
   }
 };

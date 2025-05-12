@@ -117,6 +117,17 @@ export default function Header() {
                 </Link>
               )}
               
+              {location !== "/android-test" && (
+                <Link 
+                  href="/android-test" 
+                  className="text-sm text-purple-600 hover:text-purple-800 font-medium"
+                  aria-label="Android Filesystem Test"
+                  title="Test Android Filesystem Features"
+                >
+                  Android Test
+                </Link>
+              )}
+              
               <Button
                 variant="ghost"
                 className="text-sm text-gray-600 hover:text-gray-800 font-medium"
@@ -143,6 +154,17 @@ export default function Header() {
             </>
           ) : (
             <>
+              {location !== "/android-test" && (
+                <Link 
+                  href="/android-test" 
+                  className="text-sm text-purple-600 hover:text-purple-800 font-medium"
+                  aria-label="Android Filesystem Test"
+                  title="Test Android Filesystem Features"
+                >
+                  Android Test
+                </Link>
+              )}
+              
               <Button 
                 variant="outline" 
                 className="text-sm"
