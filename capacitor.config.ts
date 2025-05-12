@@ -23,6 +23,10 @@ const config: CapacitorConfig = {
       // Allow app to access Documents directory
       accessible: ["Documents"],
     },
+    // FileOpener plugin for better PDF handling on Android
+    FileOpener: {
+      // Default configuration is sufficient
+    },
     // RevenueCat configuration will be added when set up
     PurchasesPlugin: {
       // To be configured when Google Play Console is set up

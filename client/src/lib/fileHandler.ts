@@ -84,16 +84,39 @@ export async function downloadFile(filename: string, content: string): Promise<s
           
           console.log(`[fileHandler] Opening PDF with external viewer: ${fileInfo.uri}`);
           
-          // First check if we have AppLauncher
+          // First check if we have FileOpener (preferred method for PDFs on Android)
+          if (capacitor.FileOpener) {
+            try {
+              // Use the FileOpener plugin with the content URI
+              console.log(`[fileHandler] Using FileOpener with URI: ${fileInfo.uri}`);
+              
+              // Open PDF with FileOpener specifying content type
+              await capacitor.FileOpener.open({
+                filePath: fileInfo.uri,
+                contentType: 'application/pdf',
+                openWithDefault: true
+              });
+              
+              console.log('[fileHandler] PDF opened successfully using FileOpener');
+              return result.uri;
+            } catch (fileOpenerError) {
+              console.error('[fileHandler] FileOpener failed:', fileOpenerError);
+              // Continue to fallback methods if FileOpener fails
+            }
+          } else {
+            console.warn('[fileHandler] FileOpener plugin not available, trying fallbacks');
+          }
+          
+          // Fallback to AppLauncher if FileOpener is not available or failed
           if (capacitor.AppLauncher) {
             try {
               // Use content:// URI pattern which is more reliable on modern Android
               const androidUri = fileInfo.uri;
-              console.log(`[fileHandler] Using URI for PDF opening: ${androidUri}`);
+              console.log(`[fileHandler] Fallback: Using AppLauncher URI: ${androidUri}`);
               
               // Try to open with AppLauncher - this will use Android's default app launcher
               await capacitor.AppLauncher.openUrl({ url: androidUri });
-              console.log('[fileHandler] PDF opened successfully with external viewer');
+              console.log('[fileHandler] PDF opened successfully with AppLauncher');
               return result.uri;
             } catch (launcherError) {
               console.error('[fileHandler] AppLauncher failed, trying browser fallback:', launcherError);

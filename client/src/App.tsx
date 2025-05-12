@@ -17,6 +17,7 @@ import Success from "@/pages/success";
 import UIPlayground from "@/pages/ui-playground";
 import TemplateRedirect from "@/pages/template-redirect";
 import AndroidTest from "@/pages/android-test";
+import AndroidPdfTest from "@/pages/android-pdf-test";
 import PdfTest from "@/pages/pdf-test";
 import NotFound from "@/pages/not-found";
 
@@ -76,6 +77,7 @@ function Router() {
       <Route path="/ui-playground" component={UIPlayground} />
       <Route path="/template/:type" component={TemplateRedirect} />
       <Route path="/android-test" component={AndroidTest} />
+      <Route path="/android-pdf-test" component={AndroidPdfTest} />
       <Route path="/pdf-test" component={PdfTest} />
       <Route component={NotFound} />
     </Switch>
