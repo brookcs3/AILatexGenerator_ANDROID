@@ -1,12 +1,69 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SiteLayout from "@/components/layout/site-layout";
 import { Button } from "@/components/ui/button";
-import { Filesystem, Directory } from '@capacitor/filesystem';
 import { isPlatform } from "@/lib/platform";
+
+// Instead of direct imports, we'll use dynamic imports or access these via a wrapper
+// This prevents build issues with Capacitor modules
+type FilesystemType = {
+  writeFile: (options: any) => Promise<any>;
+  readdir: (options: any) => Promise<any>;
+};
+
+// Use type for Directory enum
+type DirectoryType = {
+  Documents: string;
+};
+
+// These will be populated at runtime
+let Filesystem: FilesystemType | null = null;
+let Directory: DirectoryType | null = null;
 
 export default function AndroidTest() {
   const [result, setResult] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCapacitorReady, setIsCapacitorReady] = useState(false);
+
+  // Initialize Capacitor modules at runtime
+  useEffect(() => {
+    const initCapacitor = async () => {
+      try {
+        // Only attempt to load if we're on Android
+        if (isPlatform('android')) {
+          // Dynamic import of Capacitor modules
+          try {
+            // Using dynamic import to prevent build-time issues
+            const filesystemModule = await import('@capacitor/filesystem');
+            Filesystem = filesystemModule.Filesystem;
+            Directory = filesystemModule.Directory;
+            
+            setIsCapacitorReady(true);
+            setResult("✅ Successfully loaded Capacitor modules!");
+          } catch (importError) {
+            console.error("Failed to load Capacitor modules:", importError);
+            setResult(`❌ Error loading Capacitor modules: ${importError instanceof Error ? importError.message : String(importError)}`);
+          }
+        } else {
+          // On web, we'll use mock implementations
+          setResult("Running in web browser - Capacitor functionality will be limited");
+          
+          // Create a simple mock for testing in browser
+          Filesystem = {
+            writeFile: async () => ({ uri: "mock://file.txt" }),
+            readdir: async () => ({ files: [{ name: "mock-file-1.txt" }, { name: "mock-file-2.txt" }] })
+          };
+          
+          Directory = { Documents: "DOCUMENTS" };
+          setIsCapacitorReady(true);
+        }
+      } catch (error) {
+        console.error("Error initializing Capacitor:", error);
+        setResult(`❌ Error initializing: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    };
+
+    initCapacitor();
+  }, []);
 
   // Test platform detection
   const handleTestPlatform = () => {
@@ -28,6 +85,11 @@ export default function AndroidTest() {
   const handleTestFileWrite = async () => {
     setIsLoading(true);
     try {
+      if (!Filesystem || !Directory) {
+        setResult("Capacitor Filesystem not initialized yet!");
+        return;
+      }
+      
       // Generate a test file with current timestamp
       const testData = `Test file created at ${new Date().toISOString()}`;
       const filename = `test-file-${Date.now()}.txt`;
@@ -62,6 +124,11 @@ export default function AndroidTest() {
   const handleListFiles = async () => {
     setIsLoading(true);
     try {
+      if (!Filesystem || !Directory) {
+        setResult("Capacitor Filesystem not initialized yet!");
+        return;
+      }
+      
       const listResult = await Filesystem.readdir({
         path: "",
         directory: Directory.Documents
@@ -69,7 +136,7 @@ export default function AndroidTest() {
       
       setResult(
         `Files in Documents directory:
-        ${listResult.files.map(file => `- ${file.name}`).join('\n')}
+        ${listResult.files.map((file: { name: string }) => `- ${file.name}`).join('\n')}
         
         Total files: ${listResult.files.length}`
       );
