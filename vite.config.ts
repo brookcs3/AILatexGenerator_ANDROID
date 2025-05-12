@@ -46,8 +46,17 @@ export default defineConfig({
   root: path.resolve(__dirname, "client"),
 
   build: {
-    // Where static assets are emitted (served by Express)
+    // Keep existing settings...
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
+    // Add this new rollupOptions configuration:
+    rollupOptions: {
+      external: [
+        "@capacitor/filesystem",
+        "@capacitor/core",
+        "@capacitor/android",
+        "@revenuecat/purchases-capacitor",
+      ],
+    },
   },
 });
