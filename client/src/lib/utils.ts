@@ -85,22 +85,21 @@ export async function downloadPdf(base64Data: string, filename: string, isHtml: 
     
     // Determine the file extension and MIME type
     const extension = isHtml ? 'html' : 'pdf';
-    const mimeType = isHtml ? 'text/html' : 'application/pdf';
     const fullFilename = `${properFilename}.${extension}`;
     
+    // Clean the base64 data - remove whitespace and linebreaks
+    const cleanBase64 = base64Data.replace(/[\r\n\s]/g, '');
+    
+    // For debugging
+    console.log(`Downloading ${extension} file: ${fullFilename}, base64 length: ${cleanBase64.length}`);
+    
     // Use our platform-aware file downloader
-    await downloadFile(fullFilename, base64Data, mimeType);
+    await downloadFile(fullFilename, cleanBase64);
     
     console.log(`${extension.toUpperCase()} download initiated with filename: ${fullFilename}`);
-    
-    // Show a toast or alert to let the user know the file was saved (Android only)
-    if (isPlatform('android')) {
-      setTimeout(() => {
-        alert(`Your file "${fullFilename}" has been saved to your Documents folder. You can find it in your device's file manager.`);
-      }, 500);
-    }
   } catch (error) {
     console.error("Error downloading document:", error);
+    alert(`Failed to download the document. Please try again.`);
     throw new Error("Failed to download document");
   }
 }
