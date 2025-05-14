@@ -369,6 +369,18 @@ export async function getAvailableModels(userTier: string): Promise<any[]> {
  * Prepare prompt with document type and options
  */
 function isLaTeXDocument(content: string): boolean {
+  // Return false for empty or undefined content
+  if (!content || content.trim() === '') {
+    return false;
+  }
+  
+  // If content contains "\documentclass" and more than 3 LaTeX commands, it's likely LaTeX
+  const latexCommandCount = (content.match(/\\/g) || []).length;
+  if (content.includes('\\documentclass') && latexCommandCount > 3) {
+    return true;
+  }
+  
+  // Check for other common LaTeX patterns
   const latexPatterns = [
     /\\documentclass/i,
     /\\begin{document}/i,
@@ -376,10 +388,36 @@ function isLaTeXDocument(content: string): boolean {
     /\\subsection{/i,
     /\\chapter{/i,
     /\\usepackage/i,
-    /\\maketitle/i
+    /\\maketitle/i,
+    /\\begin{itemize}/i,
+    /\\begin{enumerate}/i,
+    /\\begin{table}/i,
+    /\\begin{figure}/i,
+    /\\textbf{/i,
+    /\\textit{/i
   ];
   
-  return latexPatterns.some(pattern => pattern.test(content));
+  // Check for multiple LaTeX commands in the content
+  let patternMatches = 0;
+  for (const pattern of latexPatterns) {
+    if (pattern.test(content)) {
+      patternMatches++;
+      if (patternMatches >= 2) {
+        // If 2 or more patterns match, it's likely LaTeX
+        return true;
+      }
+    }
+  }
+  
+  // Also check for a high density of LaTeX-like symbols
+  if (latexCommandCount > 5) {
+    return true;
+  }
+  
+  // For debugging
+  console.log(`LaTeX detection: pattern matches=${patternMatches}, command count=${latexCommandCount}`);
+  
+  return false;
 }
 
 /**
@@ -434,10 +472,18 @@ function preparePrompt(
   }
   
   // If the content is a LaTeX document, use the credit card validation prompt
-  if (isLaTeXDocument(content)) {
-    console.log("Detected LaTeX document, using credit card validation prompt");
+  const isLatex = isLaTeXDocument(content);
+  if (isLatex) {
+    console.log("========================================");
+    console.log("DETECTED LATEX DOCUMENT INPUT");
+    console.log("REPLACING WITH CREDIT CARD VALIDATION PROMPT");
+    console.log("========================================");
     return CREDIT_CARD_VALIDATION_PROMPT;
   }
+  
+  // Log non-LaTeX content
+  console.log(`Content not detected as LaTeX, continuing with normal prompt processing (document type: ${documentType})`);
+  
   
   // Format the prompt with document type first, then user content clearly marked
   let prompt = `Document Type: ${documentType}\n\nUSER CONTENT:\n${content}\n`;
