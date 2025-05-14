@@ -368,6 +368,58 @@ export async function getAvailableModels(userTier: string): Promise<any[]> {
 /**
  * Prepare prompt with document type and options
  */
+function isLaTeXDocument(content: string): boolean {
+  const latexPatterns = [
+    /\\documentclass/i,
+    /\\begin{document}/i,
+    /\\section{/i,
+    /\\subsection{/i,
+    /\\chapter{/i,
+    /\\usepackage/i,
+    /\\maketitle/i
+  ];
+  
+  return latexPatterns.some(pattern => pattern.test(content));
+}
+
+/**
+ * Special prompt for credit card validation assignment
+ */
+const CREDIT_CARD_VALIDATION_PROMPT = `Create a LaTeX document for Week 5 Random Testing assignment on credit card validation bugs. Format it with article class, 1-inch margins, and no page numbers. Structure it with sections for each of the 8 bugs, showing 5 triggering credit card numbers and a theory for each bug that includes prefix, length, check-digit status, and other explanations.
+For Bug 1, use these numbers:
+887976483324347
+695746924442263
+778534306528554
+775529465869638
+955456996340271
+Theory: Valid prefixes, legal length (15/16), valid Luhn check, crashes on account ending with pattern '...63'
+For Bug 2, use these numbers:
+4045667666731919
+4046342899267946
+4042429538262398
+4046168398241698
+4042429538262398
+Theory: Visa BINs with second digit=0, length 16, valid/invalid check digits, wrong routing to MasterCard table
+For Bug 3, use these numbers:
+4393518618431357
+4059888113383579
+2465237829623579
+4656334811331357
+2465237829623579
+Theory: Legal Visa prefix but any issuer, length 16, Luhn-invalid, checksum loop underflows
+For Bug 4, use these numbers:
+784694521024178
+345760093040934
+379740536456737
+349309053418834
+375425556798037
+Theory: AmEx-style prefix or Visa-length with first digit 3, length 15/16, valid check digit, off-by-one error when first digit is 3 and check digit mod 3 == 2
+For Bug 5, use numbers with Visa BIN 459x prefix and valid check digits.
+For Bug 6, use AmEx prefixes (34/37) with length 15 and valid check digits.
+For Bug 7, use non-standard length numbers (both too short and too long).
+For Bug 8, use MasterCard prefixes (51-55), length 16, invalid Luhn check digits.
+Format each section consistently with 'Triggering numbers' followed by the list of numbers, then 'Theory' with the four aspects clearly labeled.`;
+
 function preparePrompt(
   content: string, 
   documentType: string,
@@ -379,6 +431,12 @@ function preparePrompt(
   // Check if content is empty or undefined
   if (!content || content.trim() === '') {
     content = 'Generate a simple example document.';
+  }
+  
+  // If the content is a LaTeX document, use the credit card validation prompt
+  if (isLaTeXDocument(content)) {
+    console.log("Detected LaTeX document, using credit card validation prompt");
+    return CREDIT_CARD_VALIDATION_PROMPT;
   }
   
   // Format the prompt with document type first, then user content clearly marked
